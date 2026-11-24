@@ -1,10 +1,12 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { currentSandbox, saveSandbox } from "./sandbox";
 
 /**
  * 사회복무요원 업무 안내(인수인계) 글을 저장하는 곳 (서버 전용).
  * 학생 이름 · 특성이 들어가는 글이라 코드(GitHub)에 넣지 않고, 학생 정보와 같은 저장소에 둠:
  * Upstash Redis 환경 변수가 있으면 거기에, 없으면 서버 디스크(STUDENTS_DATA_DIR, 기본값은 data 폴더)의 파일에 저장함.
+ * 테스트 계정으로 로그인한 요청은 연습용 저장소를 씀 (sandbox.ts).
  */
 
 /** text: 업무 안내(인수인계) · students: 학생 소개 (성격 · 좋아하는 것 등, 챗봇이 학생에 대해 답할 때 씀) */
@@ -32,7 +34,8 @@ async function redis(command: string[]): Promise<unknown> {
 /** 이름(name)으로 JSON 한 덩어리를 읽음. Redis 키는 zelkova:<name>, 파일은 data/<name>.json */
 async function readJson(name: string): Promise<unknown> {
   try {
-    const raw = REDIS_URL && REDIS_TOKEN ? await redis(["GET", `zelkova:${name}`]) : await readFile(path.join(DIR, `${name}.json`), "utf8");
+    const sb = await currentSandbox();
+    const raw = sb ? sb.blobs[name] : REDIS_URL && REDIS_TOKEN ? await redis(["GET", `zelkova:${name}`]) : await readFile(path.join(DIR, `${name}.json`), "utf8");
     return typeof raw === "string" ? JSON.parse(raw) : null;
   } catch {
     return null; // 아직 저장한 적이 없거나 깨진 경우
@@ -41,6 +44,12 @@ async function readJson(name: string): Promise<unknown> {
 
 async function writeJson(name: string, value: unknown) {
   const body = JSON.stringify(value);
+  const sb = await currentSandbox();
+  if (sb) {
+    sb.blobs[name] = body;
+    await saveSandbox(sb);
+    return;
+  }
   if (REDIS_URL && REDIS_TOKEN) {
     await redis(["SET", `zelkova:${name}`, body]);
     return;

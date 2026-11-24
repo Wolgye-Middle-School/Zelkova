@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GRADES, SUBJECTS } from "@/components/students";
+import { currentSandbox, saveSandbox } from "./sandbox";
 
 /**
  * 학생 정보를 서버 디스크의 JSON 파일 하나(students.json)에 저장해 모든 사용자가 같이 쓰는 작은 저장소 (서버 전용).
@@ -8,6 +9,7 @@ import { GRADES, SUBJECTS } from "@/components/students";
  * 쓰는 도중에 읽히거나 깨지지 않도록 임시 파일에 쓴 뒤 이름을 바꾸고, 동시에 온 저장 요청은 차례대로 처리함.
  * 저장 위치: Upstash Redis(Vercel 등 서버리스 배포)의 REST 주소와 토큰 환경 변수가 있으면 거기에 JSON 한 덩어리로 저장하고,
  * 없으면 서버 디스크(STUDENTS_DATA_DIR, 기본값은 프로젝트의 data 폴더)의 파일에 저장함.
+ * 테스트 계정으로 로그인한 요청은 연습용 저장소를 씀 (sandbox.ts).
  */
 
 export type StoredStudent = { grade: string; cls: string; name: string; subjects: string[] };
@@ -53,7 +55,8 @@ export function sanitizeStudents(input: unknown): StoredStudent[] {
 
 export async function readStudents(): Promise<StoredStudent[]> {
   try {
-    const raw = REDIS_URL && REDIS_TOKEN ? await redis(["GET", REDIS_KEY]) : await readFile(FILE, "utf8");
+    const sb = await currentSandbox();
+    const raw = sb ? sb.blobs.students : REDIS_URL && REDIS_TOKEN ? await redis(["GET", REDIS_KEY]) : await readFile(FILE, "utf8");
     if (typeof raw !== "string") return [];
     const data = JSON.parse(raw) as { students?: unknown };
     return sanitizeStudents(data.students);
@@ -65,8 +68,14 @@ export async function readStudents(): Promise<StoredStudent[]> {
 let queue: Promise<unknown> = Promise.resolve();
 
 /** 학생 목록 전체를 바꿔 저장하고, 정리된 목록을 돌려줌 */
-export function writeStudents(input: unknown): Promise<StoredStudent[]> {
+export async function writeStudents(input: unknown): Promise<StoredStudent[]> {
   const students = sanitizeStudents(input);
+  const sb = await currentSandbox();
+  if (sb) {
+    sb.blobs.students = JSON.stringify({ updatedAt: Date.now(), students });
+    await saveSandbox(sb);
+    return students;
+  }
   const job = queue.then(async () => {
     if (REDIS_URL && REDIS_TOKEN) {
       await redis(["SET", REDIS_KEY, JSON.stringify({ updatedAt: Date.now(), students })]);

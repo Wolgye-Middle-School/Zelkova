@@ -1,9 +1,11 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { kv1 } from "./kv";
+import { currentSandbox, saveSandbox } from "./sandbox";
 
 /**
  * 계정 저장소 (서버 전용). 관리자가 사용자 관리 화면에서 만드는 계정들을 kv(Upstash Redis 또는 data/board.json)에 저장함.
- * 비밀번호는 원래 글자 대신 scrypt 해시로만 보관. 관리자 계정(admin)은 저장소가 아니라 코드에 고정 (auth.ts).
+ * 비밀번호는 원래 글자 대신 scrypt 해시로만 보관. 관리자 계정(admin)과 테스트 계정(test)은 저장소가 아니라 코드에 고정 (auth.ts).
+ * 테스트 계정으로 로그인한 요청은 연습용 저장소의 계정 목록을 씀 (sandbox.ts).
  */
 
 /** 사용자 계정의 종류: 특수학급 교사 · 특수교육실무사 · 사회복무요원 (관리자는 따로 고정) */
@@ -41,13 +43,19 @@ export const publicUser = (u: StoredUser): PublicUser => ({ id: u.id, email: u.e
 
 async function read(): Promise<StoredUser[]> {
   try {
-    const list = JSON.parse(((await kv1("GET", KEY)) as string | null) ?? "[]");
+    const sb = await currentSandbox();
+    const list = JSON.parse((sb ? sb.blobs.users : ((await kv1("GET", KEY)) as string | null)) ?? "[]");
     return Array.isArray(list) ? (list as StoredUser[]) : [];
   } catch {
     return [];
   }
 }
-const write = (list: StoredUser[]) => kv1("SET", KEY, JSON.stringify(list));
+async function write(list: StoredUser[]) {
+  const sb = await currentSandbox();
+  if (!sb) return kv1("SET", KEY, JSON.stringify(list));
+  sb.blobs.users = JSON.stringify(list);
+  await saveSandbox(sb);
+}
 
 export const listUsers = async () => (await read()).map(publicUser);
 
@@ -74,7 +82,9 @@ export async function createUser(input: UserInput): Promise<{ ok: true; user: Pu
   const username = input.username.trim();
   if (!email || !username) return { ok: false, error: "이메일과 사용자 이름을 적어 주세요." };
   if (input.password.length < 4) return { ok: false, error: "비밀번호는 4글자 이상이어야 해요." };
-  if (norm(email) === "admin" || norm(username) === "admin") return { ok: false, error: "admin 은 관리자 계정이 쓰는 이름이에요." };
+  for (const fixed of ["admin", "test"]) {
+    if (norm(email) === fixed || norm(username) === fixed) return { ok: false, error: `${fixed} 는 ${fixed === "admin" ? "관리자" : "테스트"} 계정이 쓰는 이름이에요.` };
+  }
   const list = await read();
   if (list.length >= MAX_USERS) return { ok: false, error: "만들 수 있는 계정 수를 넘었어요." };
   if (list.some((u) => norm(u.email) === norm(email) || norm(u.username) === norm(username) || norm(u.email) === norm(username) || norm(u.username) === norm(email))) {
@@ -95,17 +105,13 @@ export async function createUser(input: UserInput): Promise<{ ok: true; user: Pu
   return { ok: true, user: publicUser(user) };
 }
 
-export async function updateUser(id: string, change: { role?: UserRole; status?: UserStatus; password?: string }): Promise<PublicUser | null> {
+export async function updateUser(id: string, change: { role?: UserRole; status?: UserStatus }): Promise<PublicUser | null> {
   const list = await read();
   const i = list.findIndex((u) => u.id === id);
   if (i < 0) return null;
   const u = { ...list[i] };
   if (change.role) u.role = change.role;
   if (change.status) u.status = change.status;
-  if (change.password) {
-    u.salt = randomBytes(16).toString("base64url");
-    u.hash = hashPassword(change.password, u.salt);
-  }
   list[i] = u;
   await write(list);
   return publicUser(u);

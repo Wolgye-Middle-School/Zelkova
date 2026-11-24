@@ -24,17 +24,14 @@ export async function POST(request: Request) {
   return r.ok ? Response.json({ user: r.user }, { headers: NO_STORE }) : bad(r.error);
 }
 
-/** 계정 고치기: { id, role?, status?, password? } */
+/** 계정 고치기: { id, role?, status? } */
 export async function PATCH(request: Request) {
   if (!isAdmin(request)) return unauthorized();
   const b = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!b || !str(b.id)) return bad("계정을 찾을 수 없어요.");
-  const password = str(b.password);
-  if (b.password !== undefined && password.length < 4) return bad("비밀번호는 4글자 이상이어야 해요.");
   const user = await updateUser(str(b.id), {
     role: isUserRole(b.role) ? b.role : undefined,
     status: isUserStatus(b.status) ? b.status : undefined,
-    password: password || undefined,
   });
   return user ? Response.json({ user }, { headers: NO_STORE }) : bad("계정을 찾을 수 없어요.");
 }

@@ -27,7 +27,7 @@ async function api<T>(method: string, body?: unknown): Promise<{ ok: true; data:
   }
 }
 
-/** 관리자 전용: 계정(특수학급 교사 · 실무사 · 사회복무요원)을 만들고 종류 · 상태 · 비밀번호를 관리 */
+/** 관리자 전용: 계정(특수학급 교사 · 실무사 · 사회복무요원)을 만들고 종류 · 상태를 관리 */
 export default function UsersApp() {
   const [users, setUsers] = useState<User[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,16 +46,11 @@ export default function UsersApp() {
     void load();
   }, [load]);
 
-  const patch = async (id: string, change: Partial<Pick<User, "role" | "status">> & { password?: string }) => {
+  const patch = async (id: string, change: Partial<Pick<User, "role" | "status">>) => {
     setError(null);
     const r = await api<{ user: User }>("PATCH", { id, ...change });
     if (r.ok) setUsers((list) => list?.map((u) => (u.id === id ? r.data.user : u)) ?? list);
     else setError(r.error);
-  };
-
-  const resetPassword = async (u: User) => {
-    const password = window.prompt(`${u.username} 님의 새 비밀번호를 적어 주세요. (4글자 이상)`);
-    if (password) await patch(u.id, { password });
   };
 
   const add = async (e: FormEvent) => {
@@ -126,14 +121,13 @@ export default function UsersApp() {
           <div className="grid place-items-center py-10">{error ? null : <Spinner className="h-6 w-6 text-indigo-600" />}</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[560px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500">
                   <th className="py-2 pr-3">이메일</th>
                   <th className="py-2 pr-3">사용자 이름</th>
                   <th className="py-2 pr-3">상태</th>
                   <th className="py-2 pr-3">종류</th>
-                  <th className="py-2 pr-3">비밀번호</th>
                   <th className="py-2 text-right">삭제</th>
                 </tr>
               </thead>
@@ -160,11 +154,6 @@ export default function UsersApp() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-2.5 pr-3">
-                      <button type="button" onClick={() => void resetPassword(u)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50">
-                        다시 정하기
-                      </button>
-                    </td>
                     <td className="py-2.5 text-right">
                       <button type="button" onClick={() => setRemoving(u)} aria-label={`${u.username} 계정 지우기`} className="inline-grid h-8 w-8 place-items-center rounded-lg text-red-700 transition hover:bg-red-50">
                         <TrashIcon className="h-4 w-4" />
@@ -174,7 +163,7 @@ export default function UsersApp() {
                 ))}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
+                    <td colSpan={5} className="py-8 text-center text-slate-400">
                       {users.length ? "이 상태의 사용자가 없어요." : "아직 만든 계정이 없어요. 위에서 계정을 만들어 주세요."}
                     </td>
                   </tr>
@@ -183,7 +172,7 @@ export default function UsersApp() {
             </table>
           </div>
         )}
-        <p className="mt-3 text-xs text-slate-400">비밀번호는 암호화되어 저장되므로 볼 수 없고, 잊었다면 다시 정해 주세요. 사회복무요원 지시는 「사회복무요원 업무 안내」에서 고쳐요.</p>
+        <p className="mt-3 text-xs text-slate-400">비밀번호는 암호화되어 저장되므로 볼 수 없어요. 비밀번호를 잊었다면 계정을 지우고 다시 만들어 주세요. 사회복무요원 지시는 「사회복무요원 업무 안내」에서 고쳐요.</p>
       </div>
 
       {removing && (

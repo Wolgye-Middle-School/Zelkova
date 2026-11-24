@@ -1,4 +1,4 @@
-import { createHmac, createHash, timingSafeEqual } from "node:crypto";
+import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { findUser, getUser, passwordMatches, type UserRole } from "./userStore";
 
 /**
@@ -10,6 +10,9 @@ import { findUser, getUser, passwordMatches, type UserRole } from "./userStore";
  * teacher · assistant · worker 계정은 관리자가 사용자 관리 화면에서 만들고 userStore 에 저장 (비밀번호는 scrypt 해시).
  * 이메일 또는 사용자 이름 + 비밀번호로 로그인하고, 상태가 approved 인 계정만 들어올 수 있음.
  *
+ * 테스트 계정(test · test): 관리자처럼 모든 도구를 쓸 수 있지만, 저장소가 진짜 데이터 대신 연습용 저장소(sandbox.ts)를 씀.
+ * 계정 id 가 "test-" 로 시작하고, 로그인할 때마다 새 id(= 새 빈 연습용 저장소)를 받음.
+ *
  * 세션 값: "만료시각:권한:계정id" 에 AUTH_SECRET 으로 서명. 학생 정보는 세션에 넣지 않음.
  */
 
@@ -20,8 +23,17 @@ export const SESSION_COOKIE = "zelkova_session";
 /** 한 번 로그인하면 12시간 동안 유지 */
 export const SESSION_SECONDS = 12 * 60 * 60;
 
+/** 테스트 계정인지 브라우저가 알 수 있게 함께 주는 쿠키 (값은 1). 브라우저 저장(localStorage)을 진짜 것과 나누는 데 씀 */
+export const TEST_COOKIE = "zelkova_test";
+
 /** 관리자 계정 (고정) */
 const ADMIN_LOGIN = { id: "admin", password: "admin" };
+/** 테스트 계정 (고정) */
+const TEST_LOGIN = { id: "test", password: "test" };
+const TEST_PREFIX = "test-";
+
+/** 테스트 계정의 세션인지 (저장소가 연습용 저장소를 씀) */
+export const isTestSession = (s: Session) => s.role === "admin" && s.userId.startsWith(TEST_PREFIX);
 
 const secret = () => process.env.AUTH_SECRET ?? "zelkova-session-secret";
 
@@ -34,6 +46,8 @@ export type LoginResult = { ok: true; session: Session } | { ok: false; reason: 
 export async function checkCredentials(id: string, password: string): Promise<LoginResult> {
   const adminOk = same(digest(id.trim()), digest(ADMIN_LOGIN.id)) && same(digest(password), digest(ADMIN_LOGIN.password));
   if (adminOk) return { ok: true, session: { role: "admin", userId: "admin" } };
+  const testOk = same(digest(id.trim()), digest(TEST_LOGIN.id)) && same(digest(password), digest(TEST_LOGIN.password));
+  if (testOk) return { ok: true, session: { role: "admin", userId: `${TEST_PREFIX}${randomBytes(12).toString("hex")}` } };
   const user = await findUser(id);
   if (!passwordMatches(user, password) || !user) return { ok: false, reason: "invalid" };
   if (user.status !== "approved") return { ok: false, reason: "waiting" };
@@ -90,5 +104,8 @@ export async function sessionStillValid(session: Session): Promise<boolean> {
   return !!user && user.status === "approved" && user.role === session.role;
 }
 
+const secure = () => (process.env.NODE_ENV === "production" ? "; Secure" : "");
 export const sessionCookie = (value: string, maxAge: number) =>
-  `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure()}`;
+/** 테스트 계정 표시 쿠키 (브라우저 스크립트가 읽을 수 있게 HttpOnly 가 아님). on 이 false 면 지움 */
+export const testCookie = (on: boolean) => `${TEST_COOKIE}=${on ? "1" : ""}; Path=/; SameSite=Lax; Max-Age=${on ? SESSION_SECONDS : 0}${secure()}`;

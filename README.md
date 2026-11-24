@@ -96,7 +96,7 @@ npm run dev        # http://localhost:3000
 Production: `npm run build && npm start`
 
 ### Login setup
-There are four account types: **admin** (fixed id/password `admin` / `admin`), **special-class teacher** (IEP tool), **special-class assistant** (duty log) and **social-service worker** (service guide). The admin creates the other accounts in the *사용자 관리* (user management) tool; passwords are stored scrypt-hashed. Set `AUTH_SECRET` (any long random string) in `.env.local` or your host's environment variables (e.g. Vercel) to sign sessions.
+There are four account types: **admin** (fixed id/password `admin` / `admin`), **special-class teacher** (IEP tool), **special-class assistant** (duty log) and **social-service worker** (service guide). The admin creates the other accounts in the *사용자 관리* (user management) tool; passwords are stored scrypt-hashed (they cannot be viewed or reset — delete and recreate the account instead). There is also a fixed **test** account (`test` / `test`): it can try every tool like the admin, but works in an empty practice store — nothing it does touches real data or is kept (the practice store disappears at logout or after the 12-hour session, and the browser's localStorage is swapped for sessionStorage while it is logged in). Set `AUTH_SECRET` (any long random string) in `.env.local` or your host's environment variables (e.g. Vercel) to sign sessions.
 
 ### Data storage
 If `KV_REST_API_URL` / `KV_REST_API_TOKEN` (Upstash Redis) are set, data is saved there. Otherwise it is saved as JSON files in the `data/` folder.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   buildSchedule,
   combineDocx,
@@ -17,6 +17,7 @@ import {
   type TemplateSettings,
 } from "@/lib/timetable";
 import { DEFAULT_TEMPLATE_URL, type SlotState } from "./steps";
+import { isTestBrowser, logout } from "./auth";
 import { byGradeClass, DEFAULT_SUBJECTS, fetchServerRows, isBlank, loadRows, saveRows, saveServerRows, syncToTimetable, TIMETABLE_KEY, validateRows, type StudentRow } from "./students";
 import { cleanSettings, loadSettings, saveSettings, validateSettings } from "./settings";
 import UploadWizard from "./UploadWizard";
@@ -347,7 +348,10 @@ export default function TimetableApp() {
             </span>
             <span className="text-[15px] font-semibold tracking-tight text-slate-900">느티나무 교실 도우미</span>
           </button>
-          <DevContact />
+          <div className="flex items-center gap-2">
+            <TestBadge />
+            <DevContact />
+          </div>
         </div>
       </header>
 
@@ -397,6 +401,22 @@ export default function TimetableApp() {
         </>
       )}
     </div>
+  );
+}
+
+const subscribeNothing = () => () => {};
+
+/** 테스트 계정으로 로그인했을 때 오른쪽 위에 보여 주는 표시 (바꾼 내용은 진짜로 저장되지 않음) + 나가기 */
+function TestBadge() {
+  const test = useSyncExternalStore(subscribeNothing, isTestBrowser, () => false);
+  if (!test) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 py-1 pl-3 pr-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
+      테스트 계정 · 저장되지 않아요
+      <button type="button" onClick={() => void logout()} className="rounded-md px-2 py-1 text-amber-900 transition hover:bg-amber-100">
+        나가기
+      </button>
+    </span>
   );
 }
 

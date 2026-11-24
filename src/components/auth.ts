@@ -31,11 +31,24 @@ export async function checkAdmin(): Promise<boolean> {
   }
 }
 
-/** 로그인. 실패하면 화면에 보여 줄 문구 */
-export async function login(id: string, password: string): Promise<{ ok: true } | { ok: false; error: string }> {
+/**
+ * 테스트 계정(test · test)으로 로그인한 브라우저인지. 테스트 계정이면 서버는 연습용 저장소를 쓰고,
+ * 브라우저 저장(localStorage)도 layout 의 스크립트가 이 탭에만 남는 sessionStorage 로 바꿔 진짜 저장 내용과 섞이지 않게 함
+ */
+export const isTestBrowser = () => typeof document !== "undefined" && /(?:^|;\s*)zelkova_test=1(?:;|$)/.test(document.cookie);
+
+/**
+ * 로그인. 실패하면 화면에 보여 줄 문구.
+ * reload: 테스트 계정으로 들어가거나 테스트 계정에서 다른 계정으로 바뀌었으면 브라우저 저장소를 바꿔야 하므로 화면을 다시 불러와야 함
+ */
+export async function login(id: string, password: string): Promise<{ ok: true; reload: boolean } | { ok: false; error: string }> {
   try {
+    const wasTest = isTestBrowser();
     const res = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, password }) });
-    if (res.ok) return { ok: true };
+    if (res.ok) {
+      const body = (await res.json().catch(() => null)) as { test?: boolean } | null;
+      return { ok: true, reload: !!body?.test || wasTest };
+    }
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     return { ok: false, error: body?.error ?? "로그인하지 못했어요. 잠시 뒤 다시 해 주세요." };
   } catch {
@@ -44,5 +57,11 @@ export async function login(id: string, password: string): Promise<{ ok: true } 
 }
 
 export async function logout() {
+  const wasTest = isTestBrowser();
   await fetch("/api/auth", { method: "DELETE" }).catch(() => {});
+  if (wasTest) {
+    // 테스트 계정에서 쓴 브라우저 저장 내용을 지우고, 진짜 저장소로 다시 불러옴
+    sessionStorage.clear();
+    window.location.reload();
+  }
 }

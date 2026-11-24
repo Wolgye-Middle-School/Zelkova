@@ -49,7 +49,10 @@ export default function LoginOverlay({
       setError(problem);
       setPassword("");
       shake();
-    } else if (result.ok) onSuccess();
+    } else if (result.ok) {
+      onSuccess();
+      if (result.reload) window.location.reload();
+    }
     else {
       setError(result.error);
       setPassword("");

@@ -11,6 +11,7 @@ import {
   type IepMeta,
   type IepPresence,
 } from "@/lib/iep";
+import { currentSandbox, saveSandbox, type Sandbox } from "./sandbox";
 
 /**
  * 개별화교육계획 저장소 (서버 전용). 다른 저장소와 같이 Upstash Redis 환경 변수가 있으면 거기에, 없으면 서버 디스크 파일에 저장함.
@@ -19,6 +20,8 @@ import {
  * 브라우저는 "마지막으로 본 판 번호 이후에 바뀐 칸"만 받아 가므로 1초마다 물어봐도 가벼움.
  * 칸을 쓸 때는 "내가 읽은 값이 아직 그대로일 때만 쓰기"를 한 번에(원자적으로) 하고, 그 사이 다른 사람이 고쳤으면
  * 다시 읽어 합친 뒤(merge3) 다시 씀. 그래서 두 사람이 같은 순간 같은 칸을 고쳐도 한쪽 내용이 사라지지 않음.
+ *
+ * 테스트 계정으로 로그인한 요청은 연습용 저장소(sandbox.ts)에 파일 저장과 같은 방식으로 저장함 — 진짜 문서는 읽지도 쓰지도 않음.
  */
 
 const REDIS_URL = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
@@ -137,7 +140,7 @@ return {'ok', rev, applied, conflicts, fields, live, meta}
 // ---------------------------------------------------------------- 파일 저장 (Redis 가 없을 때, 서버 한 대)
 
 type FileDoc = { rev: number; values: IepFields; revs: Record<string, number> };
-type FileData = { index: Record<string, IepMeta>; docs: Record<string, FileDoc> };
+export type FileData = { index: Record<string, IepMeta>; docs: Record<string, FileDoc> };
 
 /**
  * 메모리에 올린 파일 내용은 서버 프로세스 하나에 하나만: API 라우트마다 이 파일이 따로 불러와져도(개발 서버 등)
@@ -185,6 +188,25 @@ function flushFile() {
 
 const filePresence = shared.presence;
 
+/** 테스트 계정의 연습용 저장소에서 보고 있는 사람 (메모리에만) */
+const sandboxPresence: Map<string, Map<string, Map<string, IepPresence & { at: number }>>> = ((globalThis as { __zelkovaIepSandboxPresence?: Map<string, Map<string, Map<string, IepPresence & { at: number }>>> }).__zelkovaIepSandboxPresence ??= new Map());
+
+/**
+ * 이 요청이 쓸 저장소: Redis(redis: true) 또는 파일 · 연습용 저장소처럼 메모리에 올린 내용(data)
+ * save 는 바꾼 내용을 남기고, presence 는 문서별로 보고 있는 사람
+ */
+type Local = { redis: false; data: FileData; save: () => Promise<void>; presence: Map<string, Map<string, IepPresence & { at: number }>> };
+async function backend(): Promise<{ redis: true } | Local> {
+  const sb: Sandbox | null = await currentSandbox();
+  if (sb) {
+    let presence = sandboxPresence.get(sb.id);
+    if (!presence) sandboxPresence.set(sb.id, (presence = new Map()));
+    return { redis: false, data: sb.iep, save: () => saveSandbox(sb), presence };
+  }
+  if (redisOn()) return { redis: true };
+  return { redis: false, data: await loadFile(), save: async () => flushFile(), presence: filePresence };
+}
+
 // ---------------------------------------------------------------- 공개 함수
 
 const readMeta = (v: unknown): IepMeta | null => {
@@ -199,11 +221,12 @@ const readMeta = (v: unknown): IepMeta | null => {
 /** 모든 문서 요약 (최근에 고친 것부터) */
 export async function listDocs(): Promise<IepMeta[]> {
   let metas: IepMeta[];
-  if (redisOn()) {
+  const b = await backend();
+  if (b.redis) {
     const [all] = await pipeline([["HGETALL", K.index]]);
     metas = Object.values(pairs(all)).map(readMeta).filter((m): m is IepMeta => !!m);
   } else {
-    metas = Object.values((await loadFile()).index);
+    metas = Object.values(b.data.index);
   }
   return metas.sort((a, b) => b.updatedAt - a.updatedAt);
 }
@@ -213,7 +236,8 @@ export async function createDoc(id: string, fields: IepFields, by: string): Prom
   const now = Date.now();
   const meta: IepMeta = { id, ...metaFromFields(clean), createdAt: now, updatedAt: now, updatedBy: by };
   const entries = Object.entries(clean);
-  if (redisOn()) {
+  const b = await backend();
+  if (b.redis) {
     const [count] = await pipeline([["HLEN", K.index]]);
     if (Number(count) >= MAX_DOCS) throw new Error("문서를 더 만들 수 없어요.");
     const cmds: (string | number)[][] = [["SET", K.rev(id), 1]];
@@ -224,37 +248,38 @@ export async function createDoc(id: string, fields: IepFields, by: string): Prom
     cmds.push(["HSET", K.index, id, JSON.stringify(meta)]);
     await pipeline(cmds);
   } else {
-    const data = await loadFile();
+    const data = b.data;
     if (Object.keys(data.index).length >= MAX_DOCS) throw new Error("문서를 더 만들 수 없어요.");
     data.docs[id] = { rev: 1, values: clean, revs: Object.fromEntries(entries.map(([k]) => [k, 1])) };
     data.index[id] = meta;
-    flushFile();
+    await b.save();
   }
   return meta;
 }
 
 export async function deleteDoc(id: string) {
-  if (redisOn()) {
+  const b = await backend();
+  if (b.redis) {
     await pipeline([["DEL", K.rev(id), K.values(id), K.revs(id), K.presence(id)], ["HDEL", K.index, id]]);
   } else {
-    const data = await loadFile();
-    delete data.docs[id];
-    delete data.index[id];
-    filePresence.delete(id);
-    flushFile();
+    delete b.data.docs[id];
+    delete b.data.index[id];
+    b.presence.delete(id);
+    await b.save();
   }
 }
 
 /** 문서의 모든 칸 (한글 파일로 내려받을 때). 없는 문서면 null */
 export async function readDocFields(id: string): Promise<IepFields | null> {
-  if (redisOn()) {
+  const b = await backend();
+  if (b.redis) {
     const [exists, values] = await pipeline([
       ["HEXISTS", K.index, id],
       ["HGETALL", K.values(id)],
     ]);
     return Number(exists) === 1 ? pairs(values) : null;
   }
-  const data = await loadFile();
+  const data = b.data;
   return data.docs[id] && data.index[id] ? { ...data.docs[id].values } : null;
 }
 
@@ -275,8 +300,9 @@ export type SyncResult =
 export async function syncDoc(id: string, since: number, changes: Change[], me: IepPresence): Promise<SyncResult> {
   const now = Date.now();
   const applied: IepFields = {};
+  const b = await backend();
 
-  if (redisOn()) {
+  if (b.redis) {
     let raw: RawSync;
     try {
       raw = await syncByScript(id, since, changes, me, now);
@@ -318,7 +344,7 @@ export async function syncDoc(id: string, since: number, changes: Change[], me: 
   }
 
   // 파일 저장: 한 프로세스 안에서 바로 처리 (await 사이에 끼어드는 요청이 없도록 동기적으로 바꿈)
-  const data = await loadFile();
+  const data = b.data;
   const doc = data.docs[id];
   const meta = data.index[id];
   if (!doc || !meta) return { gone: true };
@@ -335,13 +361,13 @@ export async function syncDoc(id: string, since: number, changes: Change[], me: 
   }
   if (changes.length) {
     data.index[id] = { ...meta, ...pickMeta(meta, applied), updatedAt: now, updatedBy: me.name };
-    flushFile();
+    await b.save();
   }
   const fields: IepFields = {};
   for (const [k, r] of Object.entries(doc.revs)) if (r > since) fields[k] = doc.values[k] ?? "";
 
-  let room = filePresence.get(id);
-  if (!room) filePresence.set(id, (room = new Map()));
+  let room = b.presence.get(id);
+  if (!room) b.presence.set(id, (room = new Map()));
   room.set(me.id, { ...me, at: now });
   const raw: Record<string, string> = {};
   for (const [k, p] of room) {

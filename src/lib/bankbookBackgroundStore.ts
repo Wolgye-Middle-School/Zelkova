@@ -1,12 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { del, list, put } from "@vercel/blob";
 import { PAPER_COLORS, type PaperColor } from "./bankbookSvg";
+import { sandboxImages } from "./sandbox";
 
 /**
  * 칭찬통장에 사람들이 등록한 배경(앞면 · 뒷면 사진 한 세트)을 Vercel Blob 에 저장해 모든 사용자에게 보여 줌 (서버 전용).
  * Vercel 서버는 파일을 쓸 수 없으므로 디스크 대신 Blob 저장소를 씀 (프로젝트의 Storage 에서 Blob 을 만들어 연결해야 함).
  * 세트마다 bankbook-backgrounds/<id>/ 아래에 meta.json · front.* · back.* 가 있고, meta.json 이 가장 나중에 만들어지므로
  * 올리는 도중인 세트는 목록에 나오지 않음.
+ * 테스트 계정으로 로그인한 요청은 진짜 배경 대신 서버 메모리의 연습용 배경만 보고 고침 (sandbox.ts).
  */
 
 const PREFIX = "bankbook-backgrounds/";
@@ -43,20 +45,27 @@ async function listMetas(): Promise<Meta[]> {
 }
 
 export async function listSets(): Promise<StoredSet[]> {
+  const test = await sandboxImages();
+  if (test) return test.map((m) => withUrls({ id: m.id, label: m.label, paper: m.paper as PaperColor, createdAt: m.createdAt }));
   return (await listMetas()).map(withUrls);
 }
 
 /** 입력이 올바르면 저장하고 돌려주고, 아니면 사용자에게 보여 줄 오류 문장을 돌려줌 */
 export async function addSet(input: unknown): Promise<{ set: StoredSet } | { error: string; status: number }> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return { error: "서버 저장소(Vercel Blob)가 아직 연결되지 않았어요.", status: 503 };
+  const test = await sandboxImages();
+  if (!test && !process.env.BLOB_READ_WRITE_TOKEN) return { error: "서버 저장소(Vercel Blob)가 아직 연결되지 않았어요.", status: 503 };
   const b = (input ?? {}) as Record<string, unknown>;
   const label = typeof b.label === "string" ? b.label.trim().slice(0, 12) : "";
   if (!label) return { error: "배경 이름을 입력해 주세요.", status: 400 };
   if (!isImage(b.front) || !isImage(b.back)) return { error: "앞면 · 뒷면 사진이 올바르지 않아요.", status: 400 };
   const paper = typeof b.paper === "string" && b.paper in PAPER_COLORS ? (b.paper as PaperColor) : "노랑";
-  if ((await listMetas()).length >= MAX_SETS) return { error: `등록한 배경이 ${MAX_SETS}개로 가득 찼어요. 안 쓰는 배경을 지워 주세요.`, status: 409 };
+  if ((test ?? (await listMetas())).length >= MAX_SETS) return { error: `등록한 배경이 ${MAX_SETS}개로 가득 찼어요. 안 쓰는 배경을 지워 주세요.`, status: 409 };
 
   const meta: Meta = { id: `custom-${randomBytes(8).toString("hex")}`, label, paper, createdAt: Date.now() };
+  if (test) {
+    test.push({ ...meta, front: b.front, back: b.back });
+    return { set: withUrls(meta) };
+  }
   const upload = (side: "front" | "back", dataUrl: string) => {
     const mime = DATA_URL.exec(dataUrl)![1];
     const body = Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
@@ -70,6 +79,13 @@ export async function addSet(input: unknown): Promise<{ set: StoredSet } | { err
 /** 앞면 또는 뒷면 사진을 저장소에서 받아 그대로 돌려줌. 없으면 null */
 export async function getImage(id: string, side: "front" | "back"): Promise<Response | null> {
   if (!isValidId(id)) return null;
+  const test = await sandboxImages();
+  if (test) {
+    const dataUrl = test.find((m) => m.id === id)?.[side];
+    if (!dataUrl) return null;
+    const mime = DATA_URL.exec(dataUrl)![1];
+    return new Response(Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64"), { headers: { "Content-Type": mime } });
+  }
   const { blobs } = await list({ prefix: `${PREFIX}${id}/${side}.`, limit: 1 });
   if (!blobs[0]) return null;
   const res = await fetch(blobs[0].url);
@@ -78,6 +94,12 @@ export async function getImage(id: string, side: "front" | "back"): Promise<Resp
 
 export async function removeSet(id: string) {
   if (!isValidId(id)) return;
+  const test = await sandboxImages();
+  if (test) {
+    const i = test.findIndex((m) => m.id === id);
+    if (i >= 0) test.splice(i, 1);
+    return;
+  }
   const { blobs } = await list({ prefix: `${PREFIX}${id}/`, limit: 10 });
   if (blobs.length) await del(blobs.map((b) => b.url));
 }

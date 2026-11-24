@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { canonicalWeeks, DAYS, mondayOf, NOTE_MAX, ROWS_PER_DAY, type DutyLog } from "@/lib/dutyLogSvg";
 import { sanitizeEvent, type DutyEvent } from "@/lib/dutyEvents";
+import { currentSandbox, saveSandbox } from "./sandbox";
 
 /**
  * 특수교육실무사 활동일지와 달력 일정을 서버에 저장하는 작은 저장소 (서버 전용). 학생 정보(studentStore)와 같은 방식:
@@ -9,6 +10,7 @@ import { sanitizeEvent, type DutyEvent } from "@/lib/dutyEvents";
  * 활동일지는 한 주(월요일 날짜가 열쇠)에 한 장씩, 일정은 일정마다(id가 열쇠) 모두 한 덩어리로 보관함.
  * 브라우저가 보낸 수정 시각(updatedAt)이 서버에 있는 것보다 오래됐으면 그 항목은 덮어쓰지 않고 서버 것을 돌려줌 (나중에 고친 쪽이 이김).
  * 지운 일정은 event: null 로 남겨 두어, 다른 컴퓨터에 남아 있던 같은 일정이 되살아나지 않게 함.
+ * 테스트 계정으로 로그인한 요청은 연습용 저장소를 씀 (sandbox.ts) — 진짜 활동일지는 읽지도 쓰지도 않음.
  */
 
 export type StoredDutyLog = { updatedAt: number; log: DutyLog };
@@ -73,7 +75,8 @@ const readEvent = (id: string, v: unknown): StoredEvent | null => {
 async function readAll(): Promise<Doc> {
   let raw: unknown;
   try {
-    raw = REDIS_URL && REDIS_TOKEN ? await redis(["GET", REDIS_KEY]) : await readFile(FILE, "utf8");
+    const sb = await currentSandbox();
+    raw = sb ? sb.blobs.dutylog : REDIS_URL && REDIS_TOKEN ? await redis(["GET", REDIS_KEY]) : await readFile(FILE, "utf8");
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return { weeks: {}, events: {} };
     throw e;
@@ -108,6 +111,12 @@ export async function readDutyDoc(): Promise<Doc> {
 
 async function persist(doc: Doc) {
   const body = JSON.stringify(doc);
+  const sb = await currentSandbox();
+  if (sb) {
+    sb.blobs.dutylog = body;
+    await saveSandbox(sb);
+    return;
+  }
   if (REDIS_URL && REDIS_TOKEN) {
     await redis(["SET", REDIS_KEY, body]);
     return;

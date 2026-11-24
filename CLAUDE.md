@@ -36,6 +36,10 @@ code comments, and commit messages are in Korean — keep it that way.
   (duty log), `worker` (service guide). Non-admin accounts live in kv (`zelkova:users`, scrypt-hashed), managed by the admin in
   the 사용자 관리 tool (`/api/users`). Sessions are signed with `AUTH_SECRET`. Tool visibility: `roles` in `tools.ts`; API routes
   are guarded with `hasRole()`. Never touch the duty-log store when changing auth — 실무사 data must be preserved.
+- Test account `test`/`test` (fixed in `auth.ts`): an `admin` session whose userId starts with `test-`. Every store checks
+  `currentSandbox()` (`src/lib/sandbox.ts`, reads the session cookie) and uses an empty per-login practice store instead
+  of real data (memory, plus a TTL'd `zelkova:sandbox:<id>` key when Redis is on). Any new store must do the same.
+  The `zelkova_test` cookie makes `layout.tsx` swap `localStorage` for `sessionStorage` in the browser.
 - Privacy: never send student names or personal data to external AI services; no AI features inside the IEP tool.
 
 ## 개별화교육계획 작성하기 (IEP) — HWP editor ↔ downloaded file must match exactly

@@ -1,4 +1,4 @@
-import { checkCredentials, createSession, requestSession, SESSION_SECONDS, sessionCookie, sessionStillValid } from "@/lib/auth";
+import { checkCredentials, createSession, isTestSession, requestSession, SESSION_SECONDS, sessionCookie, sessionStillValid, testCookie } from "@/lib/auth";
 import { rateLimit, TooManyRequests } from "@/lib/rateLimit";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -7,7 +7,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function GET(request: Request) {
   const session = requestSession(request);
   if (!session || !(await sessionStillValid(session))) return Response.json({ authed: false, admin: false, role: null }, { headers: NO_STORE });
-  return Response.json({ authed: true, admin: session.role === "admin", role: session.role }, { headers: NO_STORE });
+  return Response.json({ authed: true, admin: session.role === "admin", role: session.role, test: isTestSession(session) }, { headers: NO_STORE });
 }
 
 /** 로그인: { id, password } 가 맞으면 세션 쿠키를 줌 (IP 당 5분에 10번까지) */
@@ -28,13 +28,17 @@ export async function POST(request: Request) {
     const error = result.reason === "waiting" ? "아직 승인 대기 중인 계정이에요. 관리자에게 문의해 주세요." : "아이디 또는 비밀번호가 맞지 않아요.";
     return Response.json({ error }, { status: 401, headers: NO_STORE });
   }
-  return Response.json(
-    { authed: true, admin: result.session.role === "admin", role: result.session.role },
-    { headers: { ...NO_STORE, "Set-Cookie": sessionCookie(createSession(result.session), SESSION_SECONDS) } },
-  );
+  const test = isTestSession(result.session);
+  const headers = new Headers(NO_STORE);
+  headers.append("Set-Cookie", sessionCookie(createSession(result.session), SESSION_SECONDS));
+  headers.append("Set-Cookie", testCookie(test));
+  return Response.json({ authed: true, admin: result.session.role === "admin", role: result.session.role, test }, { headers });
 }
 
 /** 로그아웃 */
 export async function DELETE() {
-  return Response.json({ authed: false }, { headers: { ...NO_STORE, "Set-Cookie": sessionCookie("", 0) } });
+  const headers = new Headers(NO_STORE);
+  headers.append("Set-Cookie", sessionCookie("", 0));
+  headers.append("Set-Cookie", testCookie(false));
+  return Response.json({ authed: false }, { headers });
 }
