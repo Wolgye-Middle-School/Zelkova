@@ -35,7 +35,7 @@ Special-education teachers and staff spend hours every week on paperwork that fo
 | --- | --- | --- |
 | 🗓️ **Special-class timetable** | Combining each student's subjects with every homeroom timetable by hand | A full special-class timetable plus one timetable per student (Word), each fitted to one page |
 | ✅ **My promise board** | Drawing a monthly behaviour-promise chart for each student | A dated monthly board with the student's name (PNG / PDF) |
-| 💰 **Praise bankbook** | Making reward booklets by hand | A bankbook-style booklet (cover, info page, record pages), printed 4 pages per A4 sheet |
+| 💰 **Praise bankbook** | Making reward booklets by hand | A bankbook-style booklet (cover, info page, record pages), printed 2 pages per A4 sheet |
 | 🏷️ **Name tags** | Designing and lining up name tags | Colour-framed cards with a character, class and name, 14 per A4 sheet |
 | 🍱 **School meal menu** | Searching the school website for this month's menu | A direct link to this month's meal notice |
 | ✍️ **Positive-writing practice** | Preparing handwriting worksheets | Grid-notebook worksheets (trace / copy / blank) at word, sentence or story level (PDF) |

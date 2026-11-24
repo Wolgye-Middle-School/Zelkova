@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   a4Layout,
   BOOK_H,
@@ -9,18 +9,13 @@ import {
   bankbookPages,
   bankbookText,
   HOLE_MM,
-  ledgerCell,
-  ledgerFont,
   largestWidthFor,
-  LEDGER_ROWS,
-  normalizeLedgerDate,
   PAPER_COLORS,
   stripHoles,
   type Bankbook,
-  type LedgerRow,
   type PaperColor,
 } from "@/lib/bankbookSvg";
-import { embeddedFontCss, FONT, loadImageDataUrl, safeFileName, svgToPng, withFont } from "@/lib/svgExport";
+import { embeddedFontCss, loadImageDataUrl, safeFileName, svgToPng, withFont } from "@/lib/svgExport";
 import ImportStudentsButton from "./ImportStudentsButton";
 import NameCombobox, { parseNames } from "./NameCombobox";
 import { DownloadIcon, PlusIcon, Spinner, TrashIcon, XIcon } from "./icons";
@@ -67,8 +62,8 @@ const STEPS = [
 ] as const;
 const DONE_STEP = STEPS.length - 1;
 
-/** 쪽 크기는 A4 한 장에 4쪽이 들어가는 크기로 고정 */
-const LAYOUT = a4Layout(largestWidthFor(4));
+/** 쪽 크기는 A4 한 장에 2쪽이 들어가는 크기로 고정 */
+const LAYOUT = a4Layout(largestWidthFor(2));
 
 /** 일반 프린터가 100%로 인쇄할 때 비워 두는 가장자리 (mm). 이 안쪽에 쪽을 놓아야 그림이 잘리지 않음 */
 const PRINT_SAFE_MARGIN = 3;
@@ -91,14 +86,11 @@ type Draft = {
   kind: Bankbook["kind"];
   paper: PaperColor;
   ledgersText: string;
-  /** 거래 내역에 쓴 줄들 (쪽마다 LEDGER_ROWS 줄씩 이어짐) */
-  entries: LedgerRow[];
   picture: PictureKey;
   pictureLabel: string;
   done: boolean;
 };
 
-const BLANK_ROW: LedgerRow = ["", "", "", "", ""];
 /** 불러온 표지 · 뒤표지 그림 (그림 key → data: 주소) */
 type Arts = Record<PictureKey, { front: string; back: string }>;
 
@@ -129,7 +121,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
   const [kind, setKind] = useState<Bankbook["kind"]>("신규");
   const [paper, setPaper] = useState<PaperColor>("분홍");
   const [ledgersText, setLedgersText] = useState("5");
-  const [entries, setEntries] = useState<LedgerRow[]>([]);
   /** 거래 내역 단계에서 입력 · 미리보기 중인 쪽 (0부터) */
   const [ledgerPage, setLedgerPage] = useState(0);
   const [picture, setPicture] = useState<PictureKey>("hello_kitty");
@@ -181,15 +172,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
   const pictureArt = arts[picture] ?? null;
   const ledgers = ledgerCount(ledgersText);
   const shownLedger = Math.min(ledgerPage, ledgers - 1);
-  const setCell = (index: number, col: number, value: string) =>
-    setEntries((list) => {
-      const next = [...list];
-      while (next.length <= index) next.push([...BLANK_ROW]);
-      const row = [...next[index]] as LedgerRow;
-      row[col] = value;
-      next[index] = row;
-      return next;
-    });
 
   /** 기본 그림을 고르면 그 그림에 어울리는 속지 색으로 바꿈 */
   const choosePicture = (key: PictureKey) => {
@@ -222,9 +204,7 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
         : null,
     [previewName, bank, branch, account, issued, kind, previewPaper, cover, back, blankArt],
   );
-  /** 거래 내역 단계에서는 표의 칸을 직접 눌러 쓰므로, 그림에는 글을 넣지 않고 칸 위의 입력칸이 보여 줌 */
-  const editingLedger = step === 3 && !customOpen;
-  const pages = useMemo(() => (book ? bankbookPages(book, ledgers, editingLedger ? [] : entries) : []), [book, ledgers, entries, editingLedger]);
+  const pages = useMemo(() => (book ? bankbookPages(book, ledgers) : []), [book, ledgers]);
 
   const pictureLabel = sets.find((c) => c.id === picture)?.label ?? PICTURES.find((p) => p.key === picture)?.label ?? "";
   /** 내려받을 통장: 학생 목록 순서대로 */
@@ -233,7 +213,7 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
       names.flatMap((n) => {
         const d = made[n];
         const b = d && makeBook(n, d, arts);
-        return b ? [{ name: n, book: b, ledgers: ledgerCount(d.ledgersText), entries: d.entries }] : [];
+        return b ? [{ name: n, book: b, ledgers: ledgerCount(d.ledgersText) }] : [];
       }),
     [names, made, arts],
   );
@@ -243,7 +223,7 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
       step !== DONE_STEP
         ? []
         : books.flatMap((b) => {
-            const all = bankbookPages(b.book, b.ledgers, b.entries);
+            const all = bankbookPages(b.book, b.ledgers);
             const count = Math.ceil(all.length / layout.perSheet);
             return Array.from({ length: count }, (_, i) => ({ name: b.name, no: i + 1, count, pages: all.slice(i * layout.perSheet, (i + 1) * layout.perSheet) }));
           }),
@@ -268,7 +248,7 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
 
   /** 지금 입력 상태를 지금 학생의 값으로 저장한 목록 */
   const withCurrent = (done: boolean) =>
-    who ? { ...made, [who]: { bank, branch, issued, account, kind, paper, ledgersText, entries, picture, pictureLabel, done: done || !!made[who]?.done } } : made;
+    who ? { ...made, [who]: { bank, branch, issued, account, kind, paper, ledgersText, picture, pictureLabel, done: done || !!made[who]?.done } } : made;
   const restore = (d: Draft) => {
     setBank(d.bank);
     setBranch(d.branch);
@@ -277,7 +257,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
     setKind(d.kind);
     setPaper(d.paper);
     setLedgersText(d.ledgersText);
-    setEntries(d.entries);
     setLedgerPage(0);
     setPicture(d.picture);
   };
@@ -287,11 +266,8 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
     if (map[name]) return restore(map[name]);
     const before = list.slice(0, list.indexOf(name)).reverse().find((n) => map[n]);
     // 거래 내역은 학생마다 다르므로 이어 받지 않고 비워 둠
-    if (before) restore({ ...map[before], account: nextAccount(map[before].account), entries: [] });
-    else {
-      setEntries([]);
-      setLedgerPage(0);
-    }
+    if (before) restore({ ...map[before], account: nextAccount(map[before].account) });
+    else setLedgerPage(0);
   };
   const removeName = (n: string) => {
     const rest = names.filter((x) => x !== n);
@@ -378,13 +354,13 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
     }
   };
 
-  /** 모든 학생 통장을 PDF 하나로: A4 한 장에 4쪽씩 놓고 자르는 점선을 그림. 학생마다 새 장에서 시작 */
+  /** 모든 학생 통장을 PDF 하나로: A4 한 장에 2쪽씩 놓고 자르는 점선을 그림. 학생마다 새 장에서 시작 */
   const savePdf = async () => {
     if (!books.length) return;
     setBusy(true);
     setExportError(null);
     try {
-      const [{ jsPDF }, css] = await Promise.all([import("jspdf"), embeddedFontCss(books.map((b) => bankbookText(b.book, b.entries)).join(""))]);
+      const [{ jsPDF }, css] = await Promise.all([import("jspdf"), embeddedFontCss(books.map((b) => bankbookText(b.book)).join(""))]);
       const { orientation, paper, cols, rows } = layout;
       const doc = new jsPDF({ orientation, unit: "mm", format: "a4" });
       // 프린터가 인쇄하지 못하는 가장자리(PRINT_SAFE_MARGIN)를 뺀 영역을 쪽들이 빈틈없이 채우도록 놓음
@@ -498,7 +474,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
                   ) : (
                     <div className="relative [container-type:inline-size]">
                       <FadePage svg={pages.find((x) => x.key === slot.key)?.svg} fadeKey={slot.fadeKey} label={slot.label} />
-                      {editingLedger && slot.key.startsWith("ledger-") && <LedgerEditor page={shownLedger} entries={entries} onCell={setCell} year={Number(issued.slice(0, 4)) || new Date().getFullYear()} />}
                     </div>
                   )}
                 </figure>
@@ -701,7 +676,7 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
                   </div>
                 </div>
                 <p className="text-xs leading-relaxed text-slate-500">
-                  오른쪽 표의 칸을 눌러 바로 써요. 날짜는 칸 옆의 달력 단추로 고르거나 <b>2026.11.12</b> 처럼 써도 되고, <b>11.12</b> 라고만 쓰면 올해로 채워져요. 비워 두면 빈칸으로 나와요.
+                  거래 내역 쪽은 빈 표로 나와요. 인쇄한 뒤 손으로 적어 주세요.
                 </p>
               </div>
             </div>
@@ -942,87 +917,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
 }
 
 const FADE_MS = 250;
-
-/** 거래 내역 그림 위에 겹쳐 놓는 입력칸들: 표의 칸을 눌러 바로 씀 (6줄 × 날짜 · 내용 · 적립P · 차감P · 계) */
-const LEDGER_MAX = [10, 24, 7, 7, 7];
-const LEDGER_LABEL = ["날짜", "내용", "적립P", "차감P", "계"];
-const cellInput =
-  "absolute min-w-0 border-0 bg-transparent p-0 text-[#2f4f8f] outline-none transition focus:bg-indigo-100/50 hover:bg-indigo-50/40";
-
-function LedgerEditor({ page, entries, onCell, year }: { page: number; entries: LedgerRow[]; onCell: (index: number, col: number, value: string) => void; year: number }) {
-  return (
-    <div className="absolute inset-0">
-      {Array.from({ length: LEDGER_ROWS }, (_, r) => {
-        const index = page * LEDGER_ROWS + r;
-        const row = entries[index] ?? BLANK_ROW;
-        return LEDGER_LABEL.map((label, c) => {
-          const cell = ledgerCell(r, c);
-          const box = { left: `${(cell.x / BOOK_W) * 100}%`, top: `${(cell.y / BOOK_H) * 100}%`, width: `${(cell.w / BOOK_W) * 100}%`, height: `${(cell.h / BOOK_H) * 100}%` };
-          const text = { fontFamily: FONT, fontSize: `${(ledgerFont(row[c], c) / BOOK_W) * 100}cqw` };
-          const name = `${page + 1}쪽 ${r + 1}번째 줄 ${label}`;
-          return c === 0 ? (
-            <DateCell key={`${r}-${c}`} value={row[0]} onChange={(v) => onCell(index, 0, v)} year={year} box={box} text={text} label={name} />
-          ) : (
-            <input
-              key={`${r}-${c}`}
-              value={row[c]}
-              maxLength={LEDGER_MAX[c]}
-              aria-label={name}
-              onChange={(e) => onCell(index, c, e.target.value)}
-              className={`${cellInput} ${c === 1 ? "px-[1.2%] text-left" : "text-center"}`}
-              style={{ ...box, ...text }}
-            />
-          );
-        });
-      })}
-    </div>
-  );
-}
-
-/** 날짜 칸: 2026.11.12 · 11.12 처럼 써도 되고, 오른쪽 달력 단추로 골라도 됨. 칸을 떠나면 2026.11.12 형식으로 맞춤 */
-function DateCell({ value, onChange, year, box, text, label }: { value: string; onChange: (v: string) => void; year: number; box: React.CSSProperties; text: React.CSSProperties; label: string }) {
-  const picker = useRef<HTMLInputElement>(null);
-  const iso = normalizeLedgerDate(value, year)?.replace(/./g, "-") ?? "";
-  return (
-    <div className="absolute" style={box}>
-      <input
-        value={value}
-        maxLength={LEDGER_MAX[0]}
-        inputMode="numeric"
-        placeholder="날짜"
-        title="2026.11.12 형식으로 쓰거나 오른쪽 달력에서 골라요"
-        aria-label={label}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => {
-          const fixed = normalizeLedgerDate(value, year);
-          if (fixed && fixed !== value) onChange(fixed);
-        }}
-        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-        className={`${cellInput} h-full w-full pl-[2%] pr-[22%] text-center placeholder:text-slate-300`}
-        style={{ ...text, fontSize: `min(${text.fontSize}, 3.1cqw)` }}
-      />
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label={`${label} 달력에서 고르기`}
-        onClick={() => {
-          try {
-            picker.current?.showPicker();
-          } catch {
-            picker.current?.focus();
-          }
-        }}
-        className="absolute right-[2%] top-1/2 grid h-[55%] w-[18%] -translate-y-1/2 place-items-center rounded text-slate-400 transition hover:bg-indigo-100 hover:text-indigo-600"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-full max-h-4 w-full" aria-hidden="true">
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" />
-        </svg>
-      </button>
-      <input ref={picker} type="date" tabIndex={-1} aria-hidden="true" value={iso} onChange={(e) => e.target.value && onChange(e.target.value.replace(/-/g, "."))} className="pointer-events-none absolute bottom-0 right-0 h-0 w-0 opacity-0" />
-    </div>
-  );
-}
 
 /**
  * 쪽 그림을 보여 줌. fadeKey(고른 그림 · 속지 색)가 바뀌면 이전 그림이 서서히 사라진 뒤 새 그림이 서서히 나타나고,
