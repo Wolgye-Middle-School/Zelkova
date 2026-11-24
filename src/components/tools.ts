@@ -1,4 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
+import { isTestBrowser } from "./auth";
 import { BookCheckIcon, CalendarIcon, ChatIcon, FileTextIcon, ClipboardCheckIcon, PencilIcon, TagIcon, UsersIcon, UtensilsIcon, WalletIcon } from "./icons";
 
 /**
@@ -36,6 +37,8 @@ export type Tool = {
   login?: boolean;
   /** 이 계정들에게만 보임 (관리자는 늘 모두 봄). 없으면 로그인한 모든 계정 */
   roles?: AccountRole[];
+  /** 테스트 계정에게는 숨김 (관리자 권한으로 들어가도) */
+  noTest?: boolean;
 };
 
 export const TOOLS: Tool[] = [
@@ -49,11 +52,12 @@ export const TOOLS: Tool[] = [
   { id: "dutylog", title: "특수교육실무사 활동일지", icon: BookCheckIcon, category: "admin", tone: "bg-teal-100 text-teal-700", hue: 175, roles: ["assistant"] },
   { id: "iep", title: "개별화교육계획 작성하기", icon: FileTextIcon, category: "admin", tone: "bg-indigo-100 text-indigo-700", hue: 235, roles: ["teacher"] },
   { id: "guide", title: "사회복무요원 업무 안내", icon: ChatIcon, category: "admin", tone: "bg-sky-100 text-sky-700", hue: 210, roles: ["worker"] },
-  { id: "users", title: "사용자 관리", icon: UsersIcon, category: "admin", tone: "bg-amber-100 text-amber-700", hue: 40, roles: [] },
+  { id: "users", title: "사용자 관리", icon: UsersIcon, category: "admin", tone: "bg-amber-100 text-amber-700", hue: 40, roles: [], noTest: true },
 ];
 
 /** 이 계정에게 보이는 도구인지 (로그인하지 않았으면 role 이 null: 로그인이 필요 없는 도구만) */
 export const visibleTo = (t: Tool, role: AccountRole | null) => {
+  if (t.noTest && isTestBrowser()) return false;
   if (role === "admin") return true;
   if (!role) return !needsLogin(t);
   return !t.roles || t.roles.includes(role);

@@ -3,6 +3,7 @@ import { readGuide } from "@/lib/guideStore";
 import { DEFAULT_GUIDE } from "@/lib/serviceGuide";
 import { makePseudonymizer, type Pseudonymizer } from "@/lib/pseudonym";
 import { readStudents } from "@/lib/studentStore";
+import { readRealData } from "@/lib/sandbox";
 import { NOTICE_BOARD_URL } from "@/lib/meal";
 import { findMonthlyMealLink } from "@/lib/mealNotice";
 import { BOARDS, monthNews } from "@/lib/schoolNews";
@@ -44,7 +45,8 @@ function cleanTurns(input: unknown): Turn[] {
 }
 
 async function systemPrompt(): Promise<{ prompt: string; names: Pseudonymizer }> {
-  const [students, guide] = await Promise.all([readStudents(), readGuide()]);
+  // 테스트 계정도 연습용 저장소가 아니라 관리자가 정한 업무 안내 · 학생 소개 · 학생 목록 그대로 씀 (읽기만 함)
+  const [students, guide] = await readRealData(() => Promise.all([readStudents(), readGuide()]));
   const names = makePseudonymizer(
     students.map((s) => s.name),
     guide.students,

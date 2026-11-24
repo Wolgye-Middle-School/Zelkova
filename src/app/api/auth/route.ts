@@ -7,7 +7,9 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function GET(request: Request) {
   const session = requestSession(request);
   if (!session || !(await sessionStillValid(session))) return Response.json({ authed: false, admin: false, role: null }, { headers: NO_STORE });
-  return Response.json({ authed: true, admin: session.role === "admin", role: session.role, test: isTestSession(session) }, { headers: NO_STORE });
+  const test = isTestSession(session);
+  // admin: 관리자 전용 관리 기능(사용자 관리 · 업무 안내 편집)을 쓸 수 있는지 — 테스트 계정은 아님
+  return Response.json({ authed: true, admin: session.role === "admin" && !test, role: session.role, test }, { headers: NO_STORE });
 }
 
 /** 로그인: { id, password } 가 맞으면 세션 쿠키를 줌 (IP 당 5분에 10번까지) */
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
   const headers = new Headers(NO_STORE);
   headers.append("Set-Cookie", sessionCookie(createSession(result.session), SESSION_SECONDS));
   headers.append("Set-Cookie", testCookie(test));
-  return Response.json({ authed: true, admin: result.session.role === "admin", role: result.session.role, test }, { headers });
+  return Response.json({ authed: true, admin: result.session.role === "admin" && !test, role: result.session.role, test }, { headers });
 }
 
 /** 로그아웃 */

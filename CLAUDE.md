@@ -39,6 +39,8 @@ code comments, and commit messages are in Korean — keep it that way.
 - Test account `test`/`test` (fixed in `auth.ts`): an `admin` session whose userId starts with `test-`. Every store checks
   `currentSandbox()` (`src/lib/sandbox.ts`, reads the session cookie) and uses an empty per-login practice store instead
   of real data (memory, plus a TTL'd `zelkova:sandbox:<id>` key when Redis is on). Any new store must do the same.
+  Admin-only management (`/api/users`, `/api/guide`) uses `isRealAdmin()` so the test account can't use it; the guide
+  chatbot reads the real guide/students via `readRealData()`. The guide-edit gear shows only for the real admin.
   The `zelkova_test` cookie makes `layout.tsx` swap `localStorage` for `sessionStorage` in the browser.
 - Privacy: never send student names or personal data to external AI services; no AI features inside the IEP tool.
 

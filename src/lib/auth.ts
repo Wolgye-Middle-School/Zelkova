@@ -94,8 +94,14 @@ export const hasRole = (request: Request, ...roles: UserRole[]) => {
   return role === "admin" || (role !== null && (roles as Role[]).includes(role));
 };
 
-/** 관리자로 로그인했는지 */
+/** 관리자로 로그인했는지 (테스트 계정도 관리자 권한이지만, 관리자 전용 관리 기능은 isRealAdmin 으로 막음) */
 export const isAdmin = (request: Request) => requestRole(request) === "admin";
+
+/** 진짜 관리자인지 (테스트 계정 제외): 사용자 관리 · 업무 안내 편집 */
+export const isRealAdmin = (request: Request) => {
+  const s = requestSession(request);
+  return !!s && s.role === "admin" && !isTestSession(s);
+};
 
 /** 세션의 계정이 아직 있고 승인 상태인지 (관리자는 항상 true). 계정을 지우거나 대기로 바꾸면 곧바로 로그아웃되게 함 */
 export async function sessionStillValid(session: Session): Promise<boolean> {

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { checkAdmin } from "./auth";
 import { ArrowRightIcon, GearIcon, SparkleIcon, Spinner } from "./icons";
-import LoginOverlay from "./LoginOverlay";
 
 type Msg = { role: "user" | "model"; text: string };
 
@@ -83,12 +82,15 @@ export default function GuideChatApp() {
   const [animIndex, setAnimIndex] = useState(-1);
   /** 업무 안내(인수인계) 글을 고치는 중 */
   const [editing, setEditing] = useState(false);
-  /** 업무 안내 편집은 관리자만: 관리자가 아니면 관리자 로그인 창을 띄움 */
-  const [adminLogin, setAdminLogin] = useState(false);
-  const openEditor = async () => {
-    if (await checkAdmin()) setEditing(true);
-    else setAdminLogin(true);
-  };
+  /** 업무 안내 편집(톱니바퀴)은 관리자 계정으로 로그인했을 때만 보임 (테스트 계정 · 사회복무요원에게는 숨김) */
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void checkAdmin().then((ok) => !cancelled && setAdmin(ok));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -126,11 +128,11 @@ export default function GuideChatApp() {
       <div className="relative mb-5 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">사회복무요원 업무 안내</h1>
         {editing && <p className="mt-1 text-sm text-slate-500">챗봇이 참고할 인수인계 내용과 학생 소개를 적어 주세요.</p>}
-        {!editing && (
+        {admin && !editing && (
           // 업무 안내 편집: 톱니바퀴 아이콘 (사이트의 다른 보조 단추처럼 흰 바탕 · 옅은 테두리)
           <button
             type="button"
-            onClick={() => void openEditor()}
+            onClick={() => setEditing(true)}
             aria-label="업무 안내 편집"
             title="업무 안내 편집"
             className="mx-auto mt-3 grid h-10 w-10 place-items-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-inset ring-slate-200 transition hover:bg-indigo-50 hover:text-indigo-600 hover:ring-indigo-200 sm:absolute sm:right-0 sm:top-1 sm:mt-0"
@@ -139,20 +141,6 @@ export default function GuideChatApp() {
           </button>
         )}
       </div>
-
-      {adminLogin && (
-        <LoginOverlay
-          title="관리자 로그인"
-          exitLabel="닫기"
-          onExit={() => setAdminLogin(false)}
-          // 관리자가 아닌 계정으로 로그인하면 창을 닫지 않고 창 안에 알려 줌
-          verify={async () => ((await checkAdmin()) ? null : "관리자 계정으로 로그인하세요")}
-          onSuccess={() => {
-            setAdminLogin(false);
-            setEditing(true);
-          }}
-        />
-      )}
 
       {editing ? (
         <GuideEditor onClose={() => setEditing(false)} />

@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { cookies } from "next/headers";
 import { isTestSession, parseSession, SESSION_COOKIE, SESSION_SECONDS } from "./auth";
 import type { FileData as IepData } from "./iepStore";
@@ -59,8 +60,17 @@ function entry(id: string): Entry {
   return e;
 }
 
+const bypass = new AsyncLocalStorage<true>();
+
+/**
+ * fn 안에서는 테스트 계정이어도 진짜 저장소를 읽음. 읽기만 하는 곳에서만 쓸 것
+ * (사회복무요원 업무 안내 챗봇: 테스트 계정도 관리자가 정한 업무 안내 · 학생 소개 그대로 답하도록)
+ */
+export const readRealData = <T>(fn: () => Promise<T>) => bypass.run(true, fn);
+
 /** 지금 요청이 테스트 계정이면 그 계정의 연습용 저장소 id, 아니면 null */
 async function sandboxId(): Promise<string | null> {
+  if (bypass.getStore()) return null;
   let token: string | undefined;
   try {
     token = (await cookies()).get(SESSION_COOKIE)?.value;
