@@ -121,8 +121,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
   const [kind, setKind] = useState<Bankbook["kind"]>("신규");
   const [paper, setPaper] = useState<PaperColor>("분홍");
   const [ledgersText, setLedgersText] = useState("5");
-  /** 거래 내역 단계에서 입력 · 미리보기 중인 쪽 (0부터) */
-  const [ledgerPage, setLedgerPage] = useState(0);
   const [picture, setPicture] = useState<PictureKey>("hello_kitty");
   const [arts, setArts] = useState<Arts>({});
   const [sets, setSets] = useState<CustomPhotoSet[]>([]);
@@ -171,7 +169,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
 
   const pictureArt = arts[picture] ?? null;
   const ledgers = ledgerCount(ledgersText);
-  const shownLedger = Math.min(ledgerPage, ledgers - 1);
 
   /** 기본 그림을 고르면 그 그림에 어울리는 속지 색으로 바꿈 */
   const choosePicture = (key: PictureKey) => {
@@ -257,7 +254,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
     setKind(d.kind);
     setPaper(d.paper);
     setLedgersText(d.ledgersText);
-    setLedgerPage(0);
     setPicture(d.picture);
   };
   /** 그 학생의 통장을 입력 상태로 펼침. 처음 만드는 학생은 바로 앞 학생의 값을 이어 받고 계좌번호만 하나 올림 */
@@ -265,9 +261,7 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
     setWho(name);
     if (map[name]) return restore(map[name]);
     const before = list.slice(0, list.indexOf(name)).reverse().find((n) => map[n]);
-    // 거래 내역은 학생마다 다르므로 이어 받지 않고 비워 둠
     if (before) restore({ ...map[before], account: nextAccount(map[before].account) });
-    else setLedgerPage(0);
   };
   const removeName = (n: string) => {
     const rest = names.filter((x) => x !== n);
@@ -453,13 +447,13 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
 
   /** 앞면 · 속지 · 거래 내역 · 뒷면 (거래 내역은 모든 쪽이 같음). 화면과 내 사진 등록 창에서 같이 씀 */
   // 이름 · 통장 정보 단계는 속지만, 거래 내역 단계는 거래 내역만 보여 줌 (등록 창은 모두)
-  const onlySlot = customOpen ? null : step === 0 || step === 2 ? "info" : step === 3 ? `ledger-${shownLedger}` : null;
+  const onlySlot = customOpen ? null : step === 0 || step === 2 ? "info" : step === 3 ? "ledger-0" : null;
   const slotGrid = (
     <div className={`grid gap-4 ${onlySlot ? "mx-auto max-w-md" : "sm:grid-cols-2"}`}>
               {[
                 { key: "cover", label: "앞면", fadeKey: cover },
                 { key: "info", label: "속지", fadeKey: previewPaper },
-                { key: `ledger-${shownLedger}`, label: `거래 내역 (${shownLedger + 1}/${ledgers}쪽)`, fadeKey: "ledger" },
+                { key: "ledger-0", label: "거래 내역", fadeKey: "ledger" },
                 { key: "back", label: "뒷면", fadeKey: back },
               ].filter((slot) => !onlySlot || slot.key === onlySlot).map((slot) => (
                 <figure key={slot.key} className="rounded-2xl border border-slate-200 bg-slate-100 p-3">
@@ -660,25 +654,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
                   className={field}
                 />
               </Field>
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-600">거래 내역 쪽</span>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => setLedgerPage(Math.max(0, shownLedger - 1))} disabled={shownLedger === 0} aria-label="이전 쪽" className={`${chip(false)} px-2.5 py-1 disabled:opacity-40`}>
-                      ‹
-                    </button>
-                    <span className="min-w-[3.5rem] text-center text-xs font-semibold text-slate-600">
-                      {shownLedger + 1} / {ledgers}쪽
-                    </span>
-                    <button type="button" onClick={() => setLedgerPage(Math.min(ledgers - 1, shownLedger + 1))} disabled={shownLedger >= ledgers - 1} aria-label="다음 쪽" className={`${chip(false)} px-2.5 py-1 disabled:opacity-40`}>
-                      ›
-                    </button>
-                  </div>
-                </div>
-                <p className="text-xs leading-relaxed text-slate-500">
-                  거래 내역 쪽은 빈 표로 나와요. 인쇄한 뒤 손으로 적어 주세요.
-                </p>
-              </div>
             </div>
           )}
 
