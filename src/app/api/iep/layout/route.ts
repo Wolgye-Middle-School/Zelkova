@@ -1,4 +1,4 @@
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { sanitizeFields } from "@/lib/iep";
 import { layoutIepV2 } from "@/lib/iepCompose";
 import { loadIepForm } from "@/lib/iepFormFile";
@@ -10,7 +10,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
  * 학생 · 영역 · 단기목표 줄이 바뀔 때만 다시 부름 (글을 고칠 때는 화면이 바로 그림)
  */
 export async function POST(request: Request) {
-  if (!isAuthed(request)) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
+  if (!hasRole(request, "teacher")) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
   const body = (await request.json().catch(() => null)) as { values?: unknown } | null;
   const loaded = await loadIepForm(request);
   if (!loaded) return Response.json({ error: "한글 빈 양식 파일(templates/iep-form.hwp)을 읽지 못했어요." }, { status: 503, headers: NO_STORE });

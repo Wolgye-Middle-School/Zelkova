@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { docTitle, isDocId, metaFromFields, withTerm } from "@/lib/iep";
 import { writeForm } from "@/lib/hwpForm";
 import { buildIepHwp } from "@/lib/iepHwp";
@@ -13,7 +13,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 /** 개별화교육계획을 학교 양식 그대로 한글(HWP) 파일로 내려받기: ?id= (학생 모두 한 파일에) */
 export async function GET(request: Request) {
   await connection();
-  if (!isAuthed(request)) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
+  if (!hasRole(request, "teacher")) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
   const id = new URL(request.url).searchParams.get("id");
   if (!isDocId(id)) return Response.json({ error: "id 가 필요해요." }, { status: 400, headers: NO_STORE });
   try {

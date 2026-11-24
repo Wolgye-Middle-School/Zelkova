@@ -32,8 +32,10 @@ code comments, and commit messages are in Korean — keep it that way.
 - Stores (`iepStore`, `studentStore`, `dutyLogStore`, `kv`, …) use Upstash Redis REST when
   `KV_REST_API_URL`/`KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_*`) are set, otherwise JSON files under
   `data/` (or `STUDENTS_DATA_DIR`). Both paths must keep working. `data/` and `.env*` are gitignored.
-- Auth: credentials only in env vars, scrypt-hashed. Roles `user` / `admin` (`SUPER_ADMIN_*`) / `teacher`
-  (`TEACHER_*`). Generate with `node scripts/hash-password.mjs [--super|--teacher] <id> <password>`.
+- Auth (`src/lib/auth.ts`, `userStore.ts`): four roles — `admin` (fixed `admin`/`admin` in code), `teacher` (IEP), `assistant`
+  (duty log), `worker` (service guide). Non-admin accounts live in kv (`zelkova:users`, scrypt-hashed), managed by the admin in
+  the 사용자 관리 tool (`/api/users`). Sessions are signed with `AUTH_SECRET`. Tool visibility: `roles` in `tools.ts`; API routes
+  are guarded with `hasRole()`. Never touch the duty-log store when changing auth — 실무사 data must be preserved.
 - Privacy: never send student names or personal data to external AI services; no AI features inside the IEP tool.
 
 ## 개별화교육계획 작성하기 (IEP) — HWP editor ↔ downloaded file must match exactly

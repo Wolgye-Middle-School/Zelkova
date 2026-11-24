@@ -96,10 +96,7 @@ npm run dev        # http://localhost:3000
 Production: `npm run build && npm start`
 
 ### Login setup
-```bash
-node scripts/hash-password.mjs <id> <password>
-```
-Put the printed values (`ADMIN_ID`, `ADMIN_PASSWORD_SALT`, `ADMIN_PASSWORD_HASH`, `AUTH_SECRET`) in `.env.local` for local use, or in your host's environment variables (e.g. Vercel) when you deploy.
+There are four account types: **admin** (fixed id/password `admin` / `admin`), **special-class teacher** (IEP tool), **special-class assistant** (duty log) and **social-service worker** (service guide). The admin creates the other accounts in the *사용자 관리* (user management) tool; passwords are stored scrypt-hashed. Set `AUTH_SECRET` (any long random string) in `.env.local` or your host's environment variables (e.g. Vercel) to sign sessions.
 
 ### Data storage
 If `KV_REST_API_URL` / `KV_REST_API_TOKEN` (Upstash Redis) are set, data is saved there. Otherwise it is saved as JSON files in the `data/` folder.

@@ -1,4 +1,4 @@
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { sanitizeEvent } from "@/lib/dutyEvents";
 import { writeDutyEvent } from "@/lib/dutyLogStore";
 
@@ -6,7 +6,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 /** 달력 일정 하나를 저장 (event 가 null 이면 지운 것으로 표시) */
 export async function PUT(request: Request) {
-  if (!isAuthed(request)) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
+  if (!hasRole(request, "assistant")) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
   const body = (await request.json().catch(() => null)) as { id?: unknown; updatedAt?: unknown; event?: unknown } | null;
   if (
     !body ||

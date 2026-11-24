@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { formFields, isDocId, newDocId } from "@/lib/iep";
 import { FORM_V2 } from "@/lib/iepV2";
 import { createDoc, deleteDoc, listDocs } from "@/lib/iepStore";
@@ -12,7 +12,7 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slic
 /** 모든 개별화교육계획 목록 */
 export async function GET(request: Request) {
   await connection();
-  if (!isAuthed(request)) return unauthorized();
+  if (!hasRole(request, "teacher")) return unauthorized();
   try {
     return Response.json({ docs: await listDocs() }, { headers: NO_STORE });
   } catch (e) {
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
 /** 새 개별화교육계획 (한 학년도 · 학기, 학교 한글 양식을 그대로 고침): { year, semester, by } */
 export async function POST(request: Request) {
-  if (!isAuthed(request)) return unauthorized();
+  if (!hasRole(request, "teacher")) return unauthorized();
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const year = text(body?.year, 4);
   if (!/^\d{4}$/.test(year)) return Response.json({ error: "학년도를 네 자리 숫자로 적어 주세요." }, { status: 400, headers: NO_STORE });
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
 /** 개별화교육계획 지우기: ?id= */
 export async function DELETE(request: Request) {
-  if (!isAuthed(request)) return unauthorized();
+  if (!hasRole(request, "teacher")) return unauthorized();
   const id = new URL(request.url).searchParams.get("id");
   if (!isDocId(id)) return Response.json({ error: "id 가 필요해요." }, { status: 400, headers: NO_STORE });
   try {

@@ -1,92 +1,64 @@
-import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, createHash, timingSafeEqual } from "node:crypto";
+import { findUser, getUser, passwordMatches, type UserRole } from "./userStore";
 
 /**
- * 학생 정보 관리 로그인 (서버 전용).
- * 아이디와 비밀번호는 코드에 두지 않고 서버 환경 변수에만 둠. 비밀번호는 원래 글자 대신 scrypt 해시로 보관:
- *   ADMIN_ID, ADMIN_PASSWORD_SALT, ADMIN_PASSWORD_HASH (base64url), AUTH_SECRET (세션 서명 키)
- * 값은 `node scripts/hash-password.mjs <아이디> <비밀번호>` 로 만들 수 있음.
+ * 로그인 (서버 전용). 계정은 4가지:
+ *  - admin: 관리자. 아이디 · 비밀번호는 admin · admin 으로 고정 (사용자 관리, 사회복무요원 업무 안내 편집, 모든 도구)
+ *  - teacher: 특수학급 교사 (개별화교육계획 작성하기)
+ *  - assistant: 특수학급 실무사 (특수교육실무사 활동일지)
+ *  - worker: 사회복무요원 (사회복무요원 업무 안내)
+ * teacher · assistant · worker 계정은 관리자가 사용자 관리 화면에서 만들고 userStore 에 저장 (비밀번호는 scrypt 해시).
+ * 이메일 또는 사용자 이름 + 비밀번호로 로그인하고, 상태가 approved 인 계정만 들어올 수 있음.
  *
- * 관리자(업무 안내 편집 등) 계정은 따로: SUPER_ADMIN_ID, SUPER_ADMIN_PASSWORD_SALT, SUPER_ADMIN_PASSWORD_HASH
- * (`node scripts/hash-password.mjs --super <아이디> <비밀번호>`). 관리자로 로그인하면 일반 로그인으로 되는 일도 모두 할 수 있음.
- *
- * 특수교사 계정도 따로 둘 수 있음: TEACHER_ID, TEACHER_PASSWORD_SALT, TEACHER_PASSWORD_HASH
- * (`node scripts/hash-password.mjs --teacher <아이디> <비밀번호>`). 특수교사는 일반 로그인으로 되는 일을 모두 할 수 있음.
- *
- * 세션 값: "만료시각" (일반) · "만료시각:admin" · "만료시각:teacher:teacher" 에 AUTH_SECRET 서명. 학생 정보는 세션에 넣지 않음.
+ * 세션 값: "만료시각:권한:계정id" 에 AUTH_SECRET 으로 서명. 학생 정보는 세션에 넣지 않음.
  */
 
-const ADMIN_ID = process.env.ADMIN_ID?.normalize("NFC");
-const SALT = process.env.ADMIN_PASSWORD_SALT;
-const HASH = process.env.ADMIN_PASSWORD_HASH;
-const SUPER_ID = process.env.SUPER_ADMIN_ID?.normalize("NFC");
-const SUPER_SALT = process.env.SUPER_ADMIN_PASSWORD_SALT;
-const SUPER_HASH = process.env.SUPER_ADMIN_PASSWORD_HASH;
-const TEACHER_ID = process.env.TEACHER_ID?.normalize("NFC");
-const TEACHER_SALT = process.env.TEACHER_PASSWORD_SALT;
-const TEACHER_HASH = process.env.TEACHER_PASSWORD_HASH;
-const SCRYPT = { N: 16384, r: 8, p: 1 };
-
-/** user: 일반(실무사 · 사회복무요원 공용) · admin: 관리자 · teacher: 특수교사 */
-export type Role = "user" | "admin" | "teacher";
+export type Role = "admin" | UserRole;
 export type Session = { role: Role; userId: string };
 
 export const SESSION_COOKIE = "zelkova_session";
 /** 한 번 로그인하면 12시간 동안 유지 */
 export const SESSION_SECONDS = 12 * 60 * 60;
 
-/** 서버에 관리자 계정이 설정되어 있는지 */
-export const authConfigured = () => !!(ADMIN_ID && SALT && HASH);
+/** 관리자 계정 (고정) */
+const ADMIN_LOGIN = { id: "admin", password: "admin" };
 
-// 서명 키는 AUTH_SECRET 을 쓰고, 없으면 비밀번호 해시에서 만듦 (해시도 환경 변수에만 있음)
-const secret = () => process.env.AUTH_SECRET ?? `zelkova:${SALT}:${HASH}`;
+const secret = () => process.env.AUTH_SECRET ?? "zelkova-session-secret";
 
 const same = (a: Buffer, b: Buffer) => a.length === b.length && timingSafeEqual(a, b);
+const digest = (s: string) => createHash("sha256").update(s.normalize("NFC")).digest();
 
-/** 한 계정의 아이디 · 비밀번호가 맞는지 (한글은 입력 방식에 따라 글자 조합이 달라질 수 있어 NFC 로 맞춤) */
-function matches(id: string, password: string, wantId: string | undefined, salt: string | undefined, hash: string | undefined) {
-  if (!wantId || !salt || !hash) return false;
-  const idOk = same(Buffer.from(id.trim().normalize("NFC")), Buffer.from(wantId));
-  const got = scryptSync(password.normalize("NFC"), salt, 32, SCRYPT);
-  // 아이디가 틀려도 해시는 계산해서 걸리는 시간으로 아이디를 알아낼 수 없게 함
-  return same(got, Buffer.from(hash, "base64url")) && idOk;
+export type LoginResult = { ok: true; session: Session } | { ok: false; reason: "invalid" | "waiting" };
+
+/** 아이디 · 비밀번호가 맞는 계정 */
+export async function checkCredentials(id: string, password: string): Promise<LoginResult> {
+  const adminOk = same(digest(id.trim()), digest(ADMIN_LOGIN.id)) && same(digest(password), digest(ADMIN_LOGIN.password));
+  if (adminOk) return { ok: true, session: { role: "admin", userId: "admin" } };
+  const user = await findUser(id);
+  if (!passwordMatches(user, password) || !user) return { ok: false, reason: "invalid" };
+  if (user.status !== "approved") return { ok: false, reason: "waiting" };
+  return { ok: true, session: { role: user.role, userId: user.id } };
 }
-
-/** 맞는 계정의 권한 (관리자 계정을 먼저 봄). 둘 다 아니면 null */
-export function checkCredentials(id: string, password: string): Role | null {
-  if (matches(id, password, SUPER_ID, SUPER_SALT, SUPER_HASH)) return "admin";
-  if (matches(id, password, TEACHER_ID, TEACHER_SALT, TEACHER_HASH)) return "teacher";
-  if (matches(id, password, ADMIN_ID, SALT, HASH)) return "user";
-  return null;
-}
-
-/** 계정의 사용자 id */
-export const envUserId = (role: Role) => (role === "admin" ? "admin" : role === "teacher" ? "teacher" : "shared");
 
 const sign = (payload: string) => createHmac("sha256", secret()).update(payload).digest("base64url");
 
 /** 만료 시각과 권한을 담고 서명한 세션 값 */
-export function createSession(role: Role = "user") {
-  const exp = String(Date.now() + SESSION_SECONDS * 1000);
-  const payload = role === "user" ? exp : role === "admin" ? `${exp}:admin` : `${exp}:teacher:teacher`;
+export function createSession({ role, userId }: Session) {
+  const payload = `${Date.now() + SESSION_SECONDS * 1000}:${role}:${userId}`;
   return `${payload}.${sign(payload)}`;
 }
 
-/** 올바른 세션이면 그 권한과 사용자 id, 아니면 null */
+const ROLES: Role[] = ["admin", "teacher", "assistant", "worker"];
+
+/** 올바른 세션이면 그 권한과 계정 id, 아니면 null */
 export function parseSession(token: string | undefined): Session | null {
-  if (!token || !authConfigured()) return null;
+  if (!token) return null;
   const [payload, signature] = token.split(".");
   if (!payload || !signature || !same(Buffer.from(signature), Buffer.from(sign(payload)))) return null;
-  const [exp, role] = payload.split(":");
-  if (!(Number(exp) > Date.now())) return null;
-  if (!role) return { role: "user", userId: "shared" };
-  if (role === "admin") return { role: "admin", userId: "admin" };
-  if (role === "teacher") return { role: "teacher", userId: "teacher" };
-  return null;
+  const [exp, role, userId] = payload.split(":");
+  if (!(Number(exp) > Date.now()) || !userId || !ROLES.includes(role as Role)) return null;
+  return { role: role as Role, userId };
 }
-
-export const sessionRole = (token: string | undefined): Role | null => parseSession(token)?.role ?? null;
-
-export const isValidSession = (token: string | undefined) => sessionRole(token) !== null;
 
 /** 요청의 로그인 세션 (로그인하지 않았으면 null) */
 export function requestSession(request: Request): Session | null {
@@ -102,11 +74,21 @@ export function requestSession(request: Request): Session | null {
 /** 요청의 로그인 권한 (로그인하지 않았으면 null) */
 export const requestRole = (request: Request): Role | null => requestSession(request)?.role ?? null;
 
-/** 요청에 로그인 세션 쿠키가 있는지 (일반 · 관리자 · 특수교사 모두) */
-export const isAuthed = (request: Request) => requestRole(request) !== null;
+/** 요청한 사람의 권한이 roles 안에 있는지. 관리자는 언제나 통과 */
+export const hasRole = (request: Request, ...roles: UserRole[]) => {
+  const role = requestRole(request);
+  return role === "admin" || (role !== null && (roles as Role[]).includes(role));
+};
 
 /** 관리자로 로그인했는지 */
 export const isAdmin = (request: Request) => requestRole(request) === "admin";
+
+/** 세션의 계정이 아직 있고 승인 상태인지 (관리자는 항상 true). 계정을 지우거나 대기로 바꾸면 곧바로 로그아웃되게 함 */
+export async function sessionStillValid(session: Session): Promise<boolean> {
+  if (session.role === "admin") return true;
+  const user = await getUser(session.userId);
+  return !!user && user.status === "approved" && user.role === session.role;
+}
 
 export const sessionCookie = (value: string, maxAge: number) =>
   `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;

@@ -1,4 +1,4 @@
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { readGuide } from "@/lib/guideStore";
 import { DEFAULT_GUIDE } from "@/lib/serviceGuide";
 import { makePseudonymizer, type Pseudonymizer } from "@/lib/pseudonym";
@@ -159,7 +159,7 @@ ${list}`;
 }
 
 export async function POST(request: Request) {
-  if (!isAuthed(request)) return fail("로그인이 필요해요.", 401);
+  if (!hasRole(request, "worker")) return fail("로그인이 필요해요.", 401);
   const body = (await request.json().catch(() => null)) as { messages?: unknown } | null;
   const turns = cleanTurns(body?.messages);
   if (turns.length === 0 || turns[turns.length - 1].role !== "user") return fail("질문을 적어 주세요.", 400);

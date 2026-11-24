@@ -1,4 +1,5 @@
 /** 학생 정보 관리 로그인 (브라우저 쪽). 아이디 · 비밀번호 확인은 서버(/api/auth)에서만 함 */
+import type { AccountRole } from "./tools";
 
 export async function checkAuth(): Promise<boolean> {
   try {
@@ -6,6 +7,17 @@ export async function checkAuth(): Promise<boolean> {
     return res.ok && ((await res.json()) as { authed?: boolean }).authed === true;
   } catch {
     return false;
+  }
+}
+
+/** 지금 로그인한 계정의 종류 (로그인하지 않았으면 null) */
+export async function checkRole(): Promise<AccountRole | null> {
+  try {
+    const res = await fetch("/api/auth", { cache: "no-store" });
+    const body = res.ok ? ((await res.json()) as { role?: AccountRole | null }) : null;
+    return body?.role ?? null;
+  } catch {
+    return null;
   }
 }
 

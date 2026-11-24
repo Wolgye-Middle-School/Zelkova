@@ -2,13 +2,13 @@
 
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, useSyncExternalStore, type KeyboardEvent } from "react";
-import { checkAuth } from "./auth";
+import { checkRole } from "./auth";
 import { ArrowRightIcon, LockIcon } from "./icons";
 import LoginOverlay from "./LoginOverlay";
 import BorderBeam from "./smoothui/border-beam";
 import GlowHover from "./smoothui/glow-hover-card";
 import RevealText from "./smoothui/reveal-text";
-import { CATEGORIES, needsLogin, TOOLS, type ToolCategory, type ToolId } from "./tools";
+import { CATEGORIES, needsLogin, TOOLS, visibleTo, type AccountRole, type ToolCategory, type ToolId } from "./tools";
 import { Tilt } from "./unlumen/tilt";
 import ZelkovaScene from "./ZelkovaScene";
 
@@ -48,15 +48,17 @@ export default function Landing({ onOpen }: { onOpen: (id: ToolId) => void }) {
   const reduceMotion = useReducedMotion();
   const wantedTab = useSyncExternalStore(subscribeTab, readTab, () => "general" as const);
   /** 로그인 여부 (확인 중이면 null) */
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [role, setRole] = useState<AccountRole | null | undefined>(undefined);
+  const authed = role === undefined ? null : role !== null;
   /** 로그인하면 열어 줄 탭 (로그인 창이 떠 있는 동안) */
   const [loginFor, setLoginFor] = useState<ToolCategory | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    checkAuth().then((ok) => {
+    checkRole().then((r) => {
       if (cancelled) return;
-      setAuthed(ok);
+      const ok = r !== null;
+      setRole(r);
       // 잠긴 탭 주소로 들어왔는데 로그인하지 않았으면 바로 로그인 창
       if (!ok && isLocked(readTab())) setLoginFor(readTab());
     });
@@ -67,7 +69,7 @@ export default function Landing({ onOpen }: { onOpen: (id: ToolId) => void }) {
 
   // 로그인하지 않았으면 잠긴 탭 대신 일반 업무를 보여 줌
   const tab = isLocked(wantedTab) && !authed ? "general" : wantedTab;
-  const tools = TOOLS.filter((t) => t.category === tab);
+  const tools = TOOLS.filter((t) => t.category === tab && visibleTo(t, role ?? null));
   const featured = tools.filter((t) => t.featured);
   const rest = tools.filter((t) => !t.featured);
 
@@ -231,7 +233,7 @@ export default function Landing({ onOpen }: { onOpen: (id: ToolId) => void }) {
             if (isLocked(readTab())) writeTab("general"); // 잠긴 탭 주소로 들어왔다가 닫으면 주소도 일반 업무로
           }}
           onSuccess={() => {
-            setAuthed(true);
+            void checkRole().then(setRole);
             writeTab(loginFor);
             setLoginFor(null);
           }}

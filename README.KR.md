@@ -96,10 +96,7 @@ npm run dev        # http://localhost:3000
 배포용: `npm run build && npm start`
 
 ### 로그인 설정
-```bash
-node scripts/hash-password.mjs <아이디> <비밀번호>
-```
-나온 값(`ADMIN_ID`, `ADMIN_PASSWORD_SALT`, `ADMIN_PASSWORD_HASH`, `AUTH_SECRET`)을 이 컴퓨터에서는 `.env.local` 에, 배포할 때는 배포 서비스(예: Vercel)의 환경 변수에 넣습니다.
+계정은 4가지입니다: **관리자**(아이디 · 비밀번호 `admin` / `admin` 고정), **특수학급 교사**(개별화교육계획), **특수학급 실무사**(활동일지), **사회복무요원**(업무 안내). 관리자가 「사용자 관리」에서 나머지 계정을 만들며, 비밀번호는 scrypt 해시로만 저장됩니다. 세션 서명용 `AUTH_SECRET`(긴 무작위 문자열)을 `.env.local` 또는 배포 서비스(예: Vercel)의 환경 변수에 넣습니다.
 
 ### 데이터 저장
 `KV_REST_API_URL` / `KV_REST_API_TOKEN` (Upstash Redis) 이 있으면 거기에, 없으면 `data/` 폴더의 JSON 파일에 저장합니다.

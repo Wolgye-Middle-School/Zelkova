@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { readStudents, writeStudents } from "@/lib/studentStore";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -8,12 +8,12 @@ const unauthorized = () => Response.json({ error: "로그인이 필요해요." }
 
 export async function GET(request: Request) {
   await connection();
-  if (!isAuthed(request)) return unauthorized();
+  if (!hasRole(request, "teacher", "assistant")) return unauthorized();
   return Response.json({ students: await readStudents() }, { headers: NO_STORE });
 }
 
 export async function PUT(request: Request) {
-  if (!isAuthed(request)) return unauthorized();
+  if (!hasRole(request, "teacher", "assistant")) return unauthorized();
   const body = (await request.json().catch(() => null)) as { students?: unknown } | null;
   if (!body || !Array.isArray(body.students)) {
     return Response.json({ error: "students 목록이 필요해요." }, { status: 400 });

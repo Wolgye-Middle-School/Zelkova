@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { mondayOf } from "@/lib/dutyLogSvg";
 import { isWeekKey, readDutyDoc, sanitizeDutyLog, writeDutyWeek } from "@/lib/dutyLogStore";
 
@@ -10,13 +10,13 @@ const unauthorized = () => Response.json({ error: "로그인이 필요해요." }
 /** 저장된 모든 활동일지(주의 월요일 날짜 → 내용)와 달력 일정(id → 일정) */
 export async function GET(request: Request) {
   await connection();
-  if (!isAuthed(request)) return unauthorized();
+  if (!hasRole(request, "assistant")) return unauthorized();
   return Response.json(await readDutyDoc(), { headers: NO_STORE });
 }
 
 /** 한 주의 활동일지를 저장 */
 export async function PUT(request: Request) {
-  if (!isAuthed(request)) return unauthorized();
+  if (!hasRole(request, "assistant")) return unauthorized();
   const body = (await request.json().catch(() => null)) as { key?: unknown; updatedAt?: unknown; log?: unknown } | null;
   if (!body || !isWeekKey(body.key) || mondayOf(body.key) !== body.key || typeof body.updatedAt !== "number" || !Number.isFinite(body.updatedAt) || !sanitizeDutyLog(body.log)) {
     return Response.json({ error: "key(주의 월요일 날짜), updatedAt, log 가 필요해요." }, { status: 400 });

@@ -4,7 +4,7 @@
 // 사용: npx tsx scripts/editor-compare.ts [--zooms 50,75,100,125,150,200] [--url http://localhost:3111] [--json] [--heavy]
 //   --url 이 없으면 임시 데이터 폴더와 임시 로그인으로 next dev 를 직접 띄움 (실제 데이터는 건드리지 않음). 크롬이 설치돼 있어야 함.
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomBytes, scryptSync } from "node:crypto";
+
 import { existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -35,9 +35,7 @@ const cleanup = () => {
 process.on("exit", cleanup);
 
 const ID = "t1abc2";
-const LOGIN = { id: "tester", password: "tester-pass-1" };
-const salt = randomBytes(16).toString("base64url");
-const hash = scryptSync(LOGIN.password, salt, 32, { N: 16384, r: 8, p: 1 }).toString("base64url");
+const LOGIN = { id: "admin", password: "admin" };
 
 function seed() {
   const f: Record<string, string> = { ...formFields("2026", "2"), form: FORM_V2, setup: "1", "term.start": "2026-08-13", "term.end": "2027-01-13", "team.principal": "이지수", "team.vice": "성한용", "team.sp1": "이혜진", "team.sp2": "한성운" };
@@ -103,7 +101,7 @@ async function startServer(): Promise<string> {
     cwd: process.cwd(),
     shell: true,
     stdio: ["ignore", openSync(path.join(tmp, "server.log"), "w"), openSync(path.join(tmp, "server.log"), "a")],
-    env: { ...process.env, STUDENTS_DATA_DIR: path.join(tmp, "data"), ADMIN_ID: LOGIN.id, ADMIN_PASSWORD_SALT: salt, ADMIN_PASSWORD_HASH: hash, AUTH_SECRET: "compare-secret", KV_REST_API_URL: "", KV_REST_API_TOKEN: "", UPSTASH_REDIS_REST_URL: "", UPSTASH_REDIS_REST_TOKEN: "" },
+    env: { ...process.env, STUDENTS_DATA_DIR: path.join(tmp, "data"), AUTH_SECRET: "compare-secret", KV_REST_API_URL: "", KV_REST_API_TOKEN: "", UPSTASH_REDIS_REST_URL: "", UPSTASH_REDIS_REST_TOKEN: "" },
   });
   procs.push(p);
   const url = `http://localhost:${PORT}`;

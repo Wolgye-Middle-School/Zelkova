@@ -1,4 +1,4 @@
-import { isAuthed } from "@/lib/auth";
+import { hasRole } from "@/lib/auth";
 import { cleanCursor, isDocId, isFieldKey, VALUE_MAX } from "@/lib/iep";
 import { syncDoc, type Change } from "@/lib/iepStore";
 
@@ -10,7 +10,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
  * → 보낸 칸을 합쳐 저장하고, since 이후 바뀐 칸과 지금 문서를 보고 있는 다른 사람들을 돌려줌
  */
 export async function POST(request: Request) {
-  if (!isAuthed(request)) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
+  if (!hasRole(request, "teacher")) return Response.json({ error: "로그인이 필요해요." }, { status: 401, headers: NO_STORE });
   const body = (await request.json().catch(() => null)) as { id?: unknown; since?: unknown; me?: Record<string, unknown>; changes?: unknown } | null;
   const since = Number(body?.since);
   if (!body || !isDocId(body.id) || !Number.isFinite(since) || since < 0 || !body.me || typeof body.me.id !== "string") {
