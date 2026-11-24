@@ -30,7 +30,7 @@ export function parseLog(v: unknown): DutyLog | null {
     Array.isArray(d.notes) &&
     d.notes.length === DAYS.length
   ) {
-    return { start: d.start, end: d.end, checks: d.checks.map(Boolean), notes: d.notes.map(String), signed: !!d.signed };
+    return { start: d.start, end: d.end, checks: d.checks.map(Boolean), notes: d.notes.map(String), signed: !!d.signed, ...(typeof d.noteSize === "number" ? { noteSize: d.noteSize } : {}) };
   }
   return null;
 }

@@ -17,9 +17,10 @@ import {
   LOG_FONTS_URL,
   LOG_H,
   LOG_W,
-  NOTE_FONT,
-  NOTE_LINE,
   NOTE_MAX,
+  NOTE_SIZE,
+  noteLineOf,
+  noteSizeOf,
   noteBox,
   PRINT_FAMILY,
   INK_FAMILY,
@@ -170,7 +171,7 @@ function DutyLogEditor({ weekKey, log, status, onChange: update, onBack }: Edito
                 onChange={(e) => setNote(d, e.target.value)}
                 aria-label={`${day}요일 비고`}
                 className="absolute resize-none overflow-hidden rounded-sm border-0 bg-transparent p-0 text-center text-[#1f2a44] outline-none [overflow-wrap:anywhere] focus:bg-indigo-50/60"
-                style={{ ...pct(noteBox(d).x, noteBox(d).y, noteBox(d).w, noteBox(d).h), fontFamily: INK_FONT, fontSize: cq(NOTE_FONT + 1), lineHeight: cq(NOTE_LINE) }}
+                style={{ ...pct(noteBox(d).x, noteBox(d).y, noteBox(d).w, noteBox(d).h), fontFamily: INK_FONT, fontSize: cq(noteSizeOf(log)), lineHeight: cq(noteLineOf(noteSizeOf(log))) }}
               />
             </div>
           ))}
@@ -218,6 +219,22 @@ function DutyLogEditor({ weekKey, log, status, onChange: update, onBack }: Edito
             {busy ? <Spinner className="h-5 w-5" /> : <DownloadIcon className="h-5 w-5" />}
             PDF 다운로드
           </button>
+        </div>
+        <div className="flex items-center gap-3">
+          <label htmlFor="duty-note-size" className="text-xs font-semibold text-slate-600">
+            비고 글자 크기
+          </label>
+          <input
+            id="duty-note-size"
+            type="range"
+            min={NOTE_SIZE.min}
+            max={NOTE_SIZE.max}
+            step={1}
+            value={noteSizeOf(log)}
+            onChange={(e) => update((l) => ({ ...l, noteSize: Number(e.target.value) }))}
+            className="w-40 accent-indigo-600"
+          />
+          <span className="text-xs font-semibold text-indigo-700">{noteSizeOf(log)}</span>
         </div>
         {error && (
           <p role="alert" className="text-xs font-medium text-red-600">

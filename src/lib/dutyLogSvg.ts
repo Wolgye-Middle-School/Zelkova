@@ -42,6 +42,8 @@ export type DutyLog = {
   notes: string[];
   /** 작성자 서명을 넣었는지 */
   signed: boolean;
+  /** 비고 글자 크기 (양식 단위). 없으면 기본 크기 */
+  noteSize?: number;
 };
 
 export const ROWS_PER_DAY = ITEMS.length;
@@ -116,6 +118,11 @@ export const DATE_LINE = { y: 176, startX: 91, endX: 203, w: 92, /** 달력 단�
 export const SIGN_BOX = { x: 424, y: 158, w: 128, h: 22 };
 export const NOTE_FONT = 11;
 export const NOTE_LINE = 13;
+/** 비고 글자 크기 범위 (양식 단위) */
+export const NOTE_SIZE = { min: 8, max: 18, default: NOTE_FONT + 1 };
+export const noteSizeOf = (log: Pick<DutyLog, "noteSize">) => Math.min(NOTE_SIZE.max, Math.max(NOTE_SIZE.min, log.noteSize ?? NOTE_SIZE.default));
+/** 글자 크기에 맞춘 줄 간격 */
+export const noteLineOf = (size: number) => (size * NOTE_LINE) / NOTE_SIZE.default;
 export const noteBox = (d: number) => ({ x: GRID.x[4] + 3, y: dayTop(d) + 4, w: GRID.x[5] - GRID.x[4] - 6, h: dayH - 8 });
 
 /** YYYY-MM-DD → 2026. 11. 9. (비어 있으면 손으로 쓰도록 빈칸) */
@@ -224,8 +231,10 @@ export function dutyLogSvg(log: DutyLog, withEntries = false) {
     });
     log.notes.forEach((note, d) => {
       const box = noteBox(d);
-      wrapNote(note, box.w).forEach((line, li) => {
-        out.push(`<text x="${box.x + box.w / 2}" y="${box.y + NOTE_FONT + li * NOTE_LINE - 1}" text-anchor="middle" font-size="${NOTE_FONT + 1}" ${ink}>${esc(line)}</text>`);
+      const fs = noteSizeOf(log);
+      const lh = noteLineOf(fs);
+      wrapNote(note, box.w, fs).forEach((line, li) => {
+        out.push(`<text x="${box.x + box.w / 2}" y="${box.y + fs - 1 + li * lh}" text-anchor="middle" font-size="${fs}" ${ink}>${esc(line)}</text>`);
       });
     });
     if (log.signed) out.push(`<text x="${SIGN_BOX.x + 52}" y="${DATE_LINE.y + 1}" font-size="17" ${ink}>${WRITER}</text>`);

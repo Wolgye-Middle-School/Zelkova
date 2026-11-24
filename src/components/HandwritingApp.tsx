@@ -10,6 +10,7 @@ import {
   paginate,
   parsePhrases,
   phrasesFor,
+  REPEAT,
   SHEET_PX,
   worksheetPdf,
   type FontKind,
@@ -68,6 +69,7 @@ export default function HandwritingApp() {
   const [font, setFont] = useState<FontKind>("gothic");
   const [cell, setCell] = useState<number>(CELL_MM.default);
   const [guide, setGuide] = useState(true);
+  const [repeat, setRepeat] = useState<number>(REPEAT.default);
   const [customText, setCustomText] = useState("");
   const [saved, setSaved] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -80,7 +82,7 @@ export default function HandwritingApp() {
 
   const steps = source === "example" ? EXAMPLE_STEPS : CUSTOM_STEPS;
   const last = step === steps.length - 1;
-  const options = useMemo<Options>(() => ({ mode, cell, font, guide }), [mode, cell, font, guide]);
+  const options = useMemo<Options>(() => ({ mode, cell, font, guide, repeat }), [mode, cell, font, guide, repeat]);
 
   const base = useMemo(() => phrasesFor(level), [level]);
   const custom = useMemo(() => parsePhrases(customText), [customText]);
@@ -203,6 +205,27 @@ export default function HandwritingApp() {
                   ))}
                 </div>
                 {MODES.find((m) => m.id === mode)!.hint && <p className="mt-1.5 text-xs text-slate-500">{MODES.find((m) => m.id === mode)!.hint}</p>}
+                {mode !== "blank" && (
+                  <div className="mt-4">
+                    <div className="flex items-baseline justify-between">
+                      <label htmlFor="hw-repeat" className="text-xs font-semibold text-slate-600">
+                        반복 횟수
+                      </label>
+                      <span className="text-xs font-semibold text-indigo-700">{repeat}번</span>
+                    </div>
+                    <input
+                      id="hw-repeat"
+                      type="range"
+                      min={REPEAT.min}
+                      max={REPEAT.max}
+                      step={1}
+                      value={repeat}
+                      onChange={(e) => setRepeat(Number(e.target.value))}
+                      className="mt-2 w-full accent-indigo-600"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">같은 문구를 여러 번 쓰게 해요. 첫 줄만 위에 글씨가 보이고, 나머지는 위도 빈칸이라 받아쓰기처럼 쓸 수 있어요.</p>
+                  </div>
+                )}
               </div>
             )}
 

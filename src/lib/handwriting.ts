@@ -103,7 +103,10 @@ export const parsePhrases = (text: string) =>
     .map((s) => s.trim().replace(/\s+/g, " ").slice(0, 120))
     .filter(Boolean);
 
-export type Options = { mode: Mode; cell: number; font: FontKind; guide: boolean };
+/** 문구 한 개를 되풀이하는 횟수 범위 (첫 번째만 본보기가 위에 보이고, 나머지는 위도 빈칸) */
+export const REPEAT = { min: 1, max: 10, default: 1 };
+
+export type Options = { mode: Mode; cell: number; font: FontKind; guide: boolean; repeat: number };
 
 // ---------------------------------------------------------------- 배치 (단위 mm)
 const PAGE = { w: 210, h: 297, margin: 14 };
@@ -143,7 +146,7 @@ export function splitLines(text: string, cell: number) {
 }
 
 /** 쪽 안에 놓인 한 줄: 위는 본보기(따라 쓰기 · 보고 쓰기), 바로 아래는 빈칸 */
-export type PlacedLine = { y: number; text: string };
+export type PlacedLine = { y: number; text: string; /** 위 줄에도 본보기 없이 빈칸만 (받아쓰기용 되풀이) */ blankTop?: boolean };
 
 /**
  * 문구를 줄 단위로 쪽에 채움. 쪽이 모자라면 문구 중간에서도 다음 쪽으로 넘어감 (한 줄과 그 빈칸은 늘 같은 쪽).
@@ -157,19 +160,22 @@ export function paginate(phrases: string[], o: Options): PlacedLine[][] {
   const pages: PlacedLine[][] = [];
   let page: PlacedLine[] = [];
   let y = firstTop;
+  const repeat = Math.min(REPEAT.max, Math.max(REPEAT.min, Math.round(o.repeat || 1)));
   for (const phrase of phrases) {
-    splitLines(phrase, o.cell).forEach((text, j) => {
-      const gap = page.length ? (j === 0 ? ITEM_GAP_MM : LINE_GAP_MM) : 0;
-      if (page.length && y + gap + pairH > bottom) {
-        pages.push(page);
-        page = [];
-        y = laterTop;
-      } else {
-        y += gap;
-      }
-      page.push({ y, text });
-      y += pairH;
-    });
+    for (let r = 0; r < repeat; r++) {
+      splitLines(phrase, o.cell).forEach((text, j) => {
+        const gap = page.length ? (j === 0 ? (r === 0 ? ITEM_GAP_MM : LINE_GAP_MM) : LINE_GAP_MM) : 0;
+        if (page.length && y + gap + pairH > bottom) {
+          pages.push(page);
+          page = [];
+          y = laterTop;
+        } else {
+          y += gap;
+        }
+        page.push({ y, text, blankTop: r > 0 });
+        y += pairH;
+      });
+    }
   }
   if (page.length) pages.push(page);
   return pages;
@@ -214,8 +220,11 @@ function rowSvg(text: string, y: number, o: Options, kind: "trace" | "look" | "e
 export function pageSvg(lines: PlacedLine[], index: number, o: Options) {
   const right = PAGE.w - PAGE.margin;
   const body = lines
-    .map(({ y, text }) =>
-      o.mode === "blank" ? rowSvg(text, y, o, "empty") : rowSvg(text, y, o, o.mode === "trace" ? "trace" : "look") + rowSvg(text, y + o.cell, o, "empty"),
+    .map(({ y, text, blankTop }) =>
+      o.mode === "blank"
+        ? rowSvg(text, y, o, "empty")
+        : // 되풀이한 줄은 위도 빈칸 (칸 수는 같아 받아쓰기 시험처럼 씀)
+          rowSvg(text, y, o, blankTop ? "empty" : o.mode === "trace" ? "trace" : "look") + rowSvg(text, y + o.cell, o, "empty"),
     )
     .join("");
   const ui = `"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif`;

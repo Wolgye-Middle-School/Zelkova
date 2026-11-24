@@ -50,6 +50,7 @@ export function sanitizeDutyLog(input: unknown): DutyLog | null {
     checks: v.checks.map(Boolean),
     notes: v.notes.map((n) => String(n ?? "").slice(0, NOTE_MAX)),
     signed: !!v.signed,
+    ...(typeof v.noteSize === "number" && Number.isFinite(v.noteSize) ? { noteSize: v.noteSize } : {}),
   };
 }
 
