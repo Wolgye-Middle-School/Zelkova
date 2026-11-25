@@ -114,9 +114,14 @@ function run(db: Db, [name, key, ...a]: string[]): unknown {
       return n;
     }
     case "EXPIRE":
-      if (!db.data[key]) return 0;
+      if (!db.data[key] || (a[1]?.toUpperCase() === "NX" && db.exp[key])) return 0;
       db.exp[key] = now + Number(a[0]) * 1000;
       return 1;
+    case "DECR": {
+      const n = Number(get("s")?.v ?? 0) - 1;
+      db.data[key] = { t: "s", v: String(n) };
+      return n;
+    }
     case "INCR": {
       const s = get("s");
       const n = Number(s?.v ?? 0) + 1;

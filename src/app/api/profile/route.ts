@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { isTestSession, requestSession, sessionStillValid, type Session } from "@/lib/auth";
-import { rateLimit, TooManyRequests } from "@/lib/rateLimit";
+import { limitAttempts, TooManyRequests } from "@/lib/rateLimit";
 import { getUser, passwordMatches, publicUser, updateProfile } from "@/lib/userStore";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -36,14 +36,16 @@ export async function PATCH(request: Request) {
   const password = typeof body?.newPassword === "string" ? body.newPassword : undefined;
   if (username === undefined && password === undefined) return fail("바꿀 내용이 없어요.");
   if (password !== undefined) {
+    let succeeded: (() => Promise<void>) | undefined;
     try {
-      await rateLimit(request, "login");
+      succeeded = await limitAttempts(request, session.userId);
     } catch (e) {
       if (e instanceof TooManyRequests) return fail(e.message, 429);
       console.error(e);
     }
     const current = typeof body?.currentPassword === "string" ? body.currentPassword : "";
     if (!passwordMatches(await getUser(session.userId), current)) return fail("지금 비밀번호가 맞지 않아요.");
+    await succeeded?.();
   }
   const result = await updateProfile(session.userId, { username, password });
   if (!result.ok) return fail(result.error);
