@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { AUTH_EVENT, checkRole, login } from "./auth";
 import { EyeIcon, EyeOffIcon, Spinner } from "./icons";
 import { ROLE_LABEL, type AccountRole } from "./tools";
+import ZelkovaScene from "./ZelkovaScene";
 
 const field =
   "h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-[15px] outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100";
@@ -23,7 +24,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   if (authed) return children;
   return (
-    <main className="grid flex-1 place-items-center bg-gradient-to-b from-sky-50 to-emerald-50 px-4 py-10">
+    <main className="relative isolate grid flex-1 place-items-center overflow-hidden px-4 py-10">
+      {/* 메인 화면의 느티나무 배경을 흐리게. 가장자리가 옅게 비치지 않도록 화면보다 조금 크게 그림 */}
+      <ZelkovaScene className="absolute -inset-6 -z-10 h-[calc(100%+3rem)] w-[calc(100%+3rem)] blur-md" />
       {authed === null ? <Spinner className="h-8 w-8 text-indigo-600" /> : <AuthForm />}
     </main>
   );
