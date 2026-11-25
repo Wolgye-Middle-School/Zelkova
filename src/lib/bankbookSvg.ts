@@ -43,21 +43,6 @@ export type Bankbook = {
 const svgOpen = (w = BOOK_W, h = BOOK_H) =>
   `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" font-family='${FONT}'>`;
 
-/** 바인더 링 구멍 자리 (mm): 위 가장자리에서 중심까지 15, 중심 사이 70, 지름 5. 가로로는 쪽 가운데에 놓음 */
-export const HOLE_MM = { fromTop: 15, gap: 70, d: 5 };
-const PX_PER_MM = BOOK_W / BOOK_MM.w;
-const holes = () =>
-  "<g data-holes>" +
-  [-1, 1]
-    .map(
-      (side) =>
-        `<circle cx="${BOOK_W / 2 + (side * HOLE_MM.gap * PX_PER_MM) / 2}" cy="${HOLE_MM.fromTop * PX_PER_MM}" r="${(HOLE_MM.d * PX_PER_MM) / 2}" fill="#fff" fill-opacity="0.85" stroke="#999" stroke-width="2"/>`,
-    )
-    .join("") +
-  "</g>";
-/** PDF 에서는 구멍을 쪽 크기와 상관없이 정확한 mm 로 따로 그리므로 그림에서는 뺌 */
-export const stripHoles = (svg: string) => svg.replace(/<g data-holes>[\s\S]*?<\/g>/, "");
-
 /** 쪽 전체를 덮는 그림 */
 const fullImage = (src: string) =>
   `<image href="${src}" xlink:href="${src}" x="0" y="0" width="${BOOK_W}" height="${BOOK_H}" preserveAspectRatio="xMidYMid slice"/>`;
@@ -76,7 +61,6 @@ function coverSvg(b: Bankbook) {
     <text x="${BOOK_W - 40}" y="${BOOK_H - 76}" font-size="40" stroke-width="8">${TITLE}</text>
     <text x="${BOOK_W - 40}" y="${BOOK_H - 36}" font-size="26" stroke-width="6">${esc(b.bank)}</text>
   </g>
-  ${holes()}
 </svg>`;
 }
 
@@ -134,7 +118,6 @@ function infoSvg(b: Bankbook) {
   <g transform="translate(0 28)">${bubble}${lines}${sign}</g>
   <text x="${bankX}" y="556" text-anchor="middle" font-size="42" fill="${INK}">${esc(b.bank)}</text>
   ${seal}
-  ${holes()}
 </svg>`;
 }
 
@@ -148,8 +131,8 @@ const fitFont = (text: string, width: number, max: number) => {
   return Math.max(11, Math.min(max, (width - 16) / Math.max(units, 1)));
 };
 
-/** 거래 내역 표의 자리 (펀치홀(위에서 15mm ± 2.5mm) 아래에서 시작). 화면에서 칸 위에 입력칸을 겹쳐 놓을 때도 씀 */
-const LEDGER_GRID = { x0: 40, x1: BOOK_W - 40, top: 126, bottom: BOOK_H - 28, headH: 54 };
+/** 거래 내역 표의 자리 (위에는 여백만 조금 둠) */
+const LEDGER_GRID = { x0: 40, x1: BOOK_W - 40, top: 40, bottom: BOOK_H - 28, headH: 54 };
 const LEDGER_COLS: [string, number][] = [
   ["날짜", 0.16],
   ["내용", 0.42],
@@ -238,13 +221,11 @@ function ledgerSvg(rows: LedgerRow[] = []) {
   ${head}${cells}
   <g stroke="${INK}" stroke-width="2.5">${vLines}${hLines}</g>
   <rect x="${x0}" y="${top}" width="${w}" height="${bottom - top}" fill="none" stroke="${INK}" stroke-width="3"/>
-  ${holes()}
 </svg>`;
 }
 
 const backSvg = (src: string) => `${svgOpen()}
   ${fullImage(src)}
-  ${holes()}
 </svg>`;
 
 export type BookPage = { key: string; label: string; svg: string };

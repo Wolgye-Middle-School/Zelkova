@@ -8,10 +8,8 @@ import {
   BOOK_W,
   bankbookPages,
   bankbookText,
-  HOLE_MM,
   largestWidthFor,
   PAPER_COLORS,
-  stripHoles,
   type Bankbook,
   type PaperColor,
 } from "@/lib/bankbookSvg";
@@ -372,8 +370,7 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
       for (const [si, sheet] of sheetList.entries()) {
         if (si > 0) doc.addPage();
         for (const [slot, p] of sheet.pages.entries()) {
-          // 구멍은 그림에 넣지 않고 아래에서 정확한 mm 로 그림
-          const svg = stripHoles(p.svg);
+          const { svg } = p;
           let img = images.get(svg);
           if (!img) {
             const blob = await svgToPng(withFont(svg, css), BOOK_W, BOOK_H, scale, "image/jpeg");
@@ -384,11 +381,6 @@ export default function BankbookApp({ students, onLoadStudents }: { students: St
           const y = top + Math.floor(slot / cols) * h;
           doc.addImage(img.data, "JPEG", x, y, w, h, img.alias);
           doc.rect(x, y, w, h);
-          // 펀치홀: 위에서 중심까지, 중심 사이, 지름이 쪽 크기와 상관없이 늘 같은 mm
-          doc.setLineDashPattern([], 0);
-          doc.setFillColor(255, 255, 255);
-          for (const side of [-1, 1]) doc.circle(x + w / 2 + (side * HOLE_MM.gap) / 2, y + HOLE_MM.fromTop, HOLE_MM.d / 2, "FD");
-          doc.setLineDashPattern([1, 1], 0);
         }
       }
       doc.save(books.length === 1 ? `${safeFileName(books[0].name)} 칭찬통장.pdf` : `칭찬통장 ${books.length}명.pdf`);
