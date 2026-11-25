@@ -31,7 +31,7 @@ import MealApp from "./MealApp";
 import StudentsApp from "./StudentsApp";
 import HandwritingApp from "./HandwritingApp";
 import DutyLogApp from "./DutyLogApp";
-import GuideChatApp from "./GuideChatApp";
+import GuideChatApp, { GuideEditor } from "./GuideChatApp";
 import IepApp from "./IepApp";
 import UsersApp from "./UsersApp";
 import ProfileMenu from "./ProfileMenu";
@@ -74,7 +74,7 @@ function studentFileNames(students: Student[], term: string) {
   });
 }
 
-type Phase = "home" | "upload" | "generating" | "result" | "promise" | "bankbook" | "nametag" | "meal" | "students" | "handwriting" | "dutylog" | "guide" | "iep" | "users";
+type Phase = "home" | "upload" | "generating" | "result" | "promise" | "bankbook" | "nametag" | "meal" | "students" | "handwriting" | "dutylog" | "guide" | "iep" | "users" | "guideedit";
 
 /** 각 단계가 너무 빨리 지나가 깜빡이지 않도록 최소 표시 시간 */
 const MIN_STAGE_MS = 600;
@@ -399,6 +399,15 @@ export default function TimetableApp() {
             {phase === "guide" && <GuideChatApp />}
             {phase === "iep" && <IepApp />}
             {phase === "users" && <UsersApp />}
+            {phase === "guideedit" && (
+              <div className="fade-up mx-auto max-w-3xl">
+                <div className="mb-5 text-center">
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">사회복무요원 업무 지시</h1>
+                  <p className="mt-1 text-sm text-slate-500">챗봇이 참고할 인수인계 내용과 학생 소개를 적어 주세요.</p>
+                </div>
+                <GuideEditor onClose={() => setPhase("home")} />
+              </div>
+            )}
           </main>
         </>
       )}

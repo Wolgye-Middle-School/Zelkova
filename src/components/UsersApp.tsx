@@ -172,7 +172,7 @@ export default function UsersApp() {
             </table>
           </div>
         )}
-        <p className="mt-3 text-xs text-slate-400">비밀번호는 암호화되어 저장되므로 볼 수 없어요. 비밀번호를 잊었다면 계정을 지우고 다시 만들어 주세요. 사회복무요원 지시는 「사회복무요원 업무 안내」에서 고쳐요.</p>
+        <p className="mt-3 text-xs text-slate-400">비밀번호는 암호화되어 저장되므로 볼 수 없어요. 비밀번호를 잊었다면 계정을 지우고 다시 만들어 주세요. 사회복무요원 지시는 「사회복무요원 업무 지시」에서 고쳐요.</p>
       </div>
 
       {removing && (

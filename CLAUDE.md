@@ -34,7 +34,7 @@ code comments, and commit messages are in Korean — keep it that way.
   `data/` (or `STUDENTS_DATA_DIR`). Both paths must keep working. `data/` and `.env*` are gitignored.
 - Auth (`src/lib/auth.ts`, `userStore.ts`): four roles — `admin` (fixed `admin`/`admin` in code), `teacher` (IEP), `assistant`
   (duty log), `worker` (service guide). Non-admin accounts live in kv (`zelkova:users`, scrypt-hashed). `AuthGate` shows only login/sign-up until logged in; sign-ups (`/api/signup`) are `waiting` until approved. Managed by the admin in
-  the 사용자 관리 tool (`/api/users`). Sessions are signed with `AUTH_SECRET`. Tool visibility: `roles` in `tools.ts`; API routes
+  the 사용자 관리 tool (`/api/users`). Sessions are signed with `AUTH_SECRET`. Tool visibility: `roles`/`noAdmin` in `tools.ts` (the real admin does not see duty log, IEP or the guide chat; it edits the guide via `guideedit`); API routes
   are guarded with `hasRole()`. The header avatar (`ProfileMenu`, `/api/profile`) lets non-fixed accounts change name/password. Never touch the duty-log store when changing auth — 실무사 data must be preserved.
 - Test account `test`/`test` (fixed in `auth.ts`): an `admin` session whose userId starts with `test-`. Every store checks
   `currentSandbox()` (`src/lib/sandbox.ts`, reads the session cookie) and uses an empty per-login practice store instead

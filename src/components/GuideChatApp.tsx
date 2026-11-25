@@ -273,7 +273,7 @@ const TABS = [
 /**
  * 챗봇이 참고하는 업무 안내(인수인계) 글과 학생 소개를 고치는 곳. 학생 정보가 들어가므로 코드가 아니라 서버 저장소에 저장함 (/api/guide)
  */
-function GuideEditor({ onClose }: { onClose: () => void }) {
+export function GuideEditor({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<"text" | "students">("text");
   const [text, setText] = useState("");
   const [students, setStudents] = useState("");

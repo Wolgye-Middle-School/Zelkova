@@ -20,7 +20,7 @@ export const CATEGORIES: { id: ToolCategory; label: string; locked: boolean }[] 
 export type AccountRole = "admin" | "teacher" | "assistant" | "worker";
 export const ROLE_LABEL: Record<AccountRole, string> = { admin: "관리자", teacher: "특수학급 교사", assistant: "특수학급 실무사", worker: "사회복무요원" };
 
-export type ToolId = "users" | "timetable" | "promise" | "bankbook" | "nametag" | "meal" | "handwriting" | "students" | "dutylog" | "guide" | "iep";
+export type ToolId = "users" | "timetable" | "promise" | "bankbook" | "nametag" | "meal" | "handwriting" | "students" | "dutylog" | "guide" | "guideedit" | "iep";
 
 export type Tool = {
   id: ToolId;
@@ -35,10 +35,12 @@ export type Tool = {
   featured?: boolean;
   /** 열 때 로그인해야 함 (잠긴 탭의 도구는 따로 적지 않아도 로그인 필요) */
   login?: boolean;
-  /** 이 계정들에게만 보임 (관리자는 늘 모두 봄). 없으면 로그인한 모든 계정 */
+  /** 이 계정들에게만 보임 (관리자는 noAdmin 이 아니면 모두 봄). 없으면 로그인한 모든 계정 */
   roles?: AccountRole[];
   /** 테스트 계정에게는 숨김 (관리자 권한으로 들어가도) */
   noTest?: boolean;
+  /** 관리자에게는 숨김 (테스트 계정은 모든 도구를 써 보는 계정이라 보임) */
+  noAdmin?: boolean;
 };
 
 export const TOOLS: Tool[] = [
@@ -49,16 +51,17 @@ export const TOOLS: Tool[] = [
   { id: "meal", title: "급식표 조회하기", icon: UtensilsIcon, category: "general", tone: "bg-sky-100 text-sky-700", hue: 200 },
   { id: "handwriting", title: "긍정 · 감성 필사 교실", icon: PencilIcon, category: "general", tone: "bg-rose-100 text-rose-600", hue: 350 },
   { id: "students", title: "학생 정보 관리하기", icon: UsersIcon, category: "general", tone: "bg-violet-100 text-violet-700", hue: 262, login: true, roles: ["teacher", "assistant"] },
-  { id: "dutylog", title: "특수교육실무사 활동일지", icon: BookCheckIcon, category: "admin", tone: "bg-teal-100 text-teal-700", hue: 175, roles: ["assistant"] },
-  { id: "iep", title: "개별화교육계획 작성하기", icon: FileTextIcon, category: "admin", tone: "bg-indigo-100 text-indigo-700", hue: 235, roles: ["teacher"] },
-  { id: "guide", title: "사회복무요원 업무 안내", icon: ChatIcon, category: "admin", tone: "bg-sky-100 text-sky-700", hue: 210, roles: ["worker"] },
+  { id: "dutylog", title: "특수교육실무사 활동일지", icon: BookCheckIcon, category: "admin", tone: "bg-teal-100 text-teal-700", hue: 175, roles: ["assistant"], noAdmin: true },
+  { id: "iep", title: "개별화교육계획 작성하기", icon: FileTextIcon, category: "admin", tone: "bg-indigo-100 text-indigo-700", hue: 235, roles: ["teacher"], noAdmin: true },
+  { id: "guide", title: "사회복무요원 업무 안내", icon: ChatIcon, category: "admin", tone: "bg-sky-100 text-sky-700", hue: 210, roles: ["worker"], noAdmin: true },
+  { id: "guideedit", title: "사회복무요원 업무 지시", icon: ChatIcon, category: "admin", tone: "bg-sky-100 text-sky-700", hue: 210, roles: [], noTest: true },
   { id: "users", title: "사용자 관리", icon: UsersIcon, category: "admin", tone: "bg-amber-100 text-amber-700", hue: 40, roles: [], noTest: true },
 ];
 
 /** 이 계정에게 보이는 도구인지 (로그인하지 않았으면 role 이 null: 로그인이 필요 없는 도구만) */
 export const visibleTo = (t: Tool, role: AccountRole | null) => {
   if (t.noTest && isTestBrowser()) return false;
-  if (role === "admin") return true;
+  if (role === "admin") return !t.noAdmin || isTestBrowser();
   if (!role) return !needsLogin(t);
   return !t.roles || t.roles.includes(role);
 };
