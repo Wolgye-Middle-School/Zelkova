@@ -83,7 +83,7 @@ export default function UsersApp() {
       </div>
 
       <form onSubmit={add} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-[1fr_1fr_auto_1fr_auto]">
-        <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="이메일 (로그인 아이디)" aria-label="이메일" className={field} />
+        <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="아이디" aria-label="아이디" className={field} />
         <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="사용자 이름" aria-label="사용자 이름" className={field} />
         <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })} aria-label="계정 종류" className={`${select} h-10`}>
           {ROLES.map((r) => (
@@ -124,7 +124,7 @@ export default function UsersApp() {
             <table className="w-full min-w-[560px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500">
-                  <th className="py-2 pr-3">이메일</th>
+                  <th className="py-2 pr-3">아이디</th>
                   <th className="py-2 pr-3">사용자 이름</th>
                   <th className="py-2 pr-3">상태</th>
                   <th className="py-2 pr-3">종류</th>

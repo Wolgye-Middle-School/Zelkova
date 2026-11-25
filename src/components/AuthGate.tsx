@@ -102,8 +102,8 @@ function AuthForm() {
       <form onSubmit={submit} className="mt-5 space-y-3">
         <fieldset disabled={busy} className="space-y-3">
           <label className="block">
-            <span className="mb-1 block text-xs font-semibold text-slate-600">{signup ? "이메일" : "아이디 (이메일 또는 이름)"}</span>
-            <input value={id} type={signup ? "email" : "text"} autoComplete="username" onChange={(e) => setId(e.target.value)} className={field} />
+            <span className="mb-1 block text-xs font-semibold text-slate-600">아이디</span>
+            <input value={id} type="text" autoComplete="username" onChange={(e) => setId(e.target.value)} className={field} />
           </label>
           {signup && (
             <>

@@ -8,7 +8,7 @@ import { findUser, getUser, passwordMatches, type UserRole } from "./userStore";
  *  - assistant: 특수학급 실무사 (특수교육실무사 활동일지)
  *  - worker: 사회복무요원 (사회복무요원 업무 안내)
  * teacher · assistant · worker 계정은 관리자가 사용자 관리 화면에서 만들고 userStore 에 저장 (비밀번호는 scrypt 해시).
- * 이메일 또는 사용자 이름 + 비밀번호로 로그인하고, 상태가 approved 인 계정만 들어올 수 있음.
+ * 아이디 또는 사용자 이름 + 비밀번호로 로그인하고, 상태가 approved 인 계정만 들어올 수 있음.
  *
  * 테스트 계정(test · test): 관리자처럼 모든 도구를 쓸 수 있지만, 저장소가 진짜 데이터 대신 연습용 저장소(sandbox.ts)를 씀.
  * 계정 id 가 "test-" 로 시작하고, 로그인할 때마다 새 id(= 새 빈 연습용 저장소)를 받음.

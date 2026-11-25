@@ -23,6 +23,7 @@ export const isUserStatus = (v: unknown): v is UserStatus => v === "approved" ||
 
 export type StoredUser = {
   id: string;
+  /** 로그인 아이디 (예전에 이메일로 받던 칸이라 저장 이름은 email) */
   email: string;
   username: string;
   role: UserRole;
@@ -61,7 +62,7 @@ export const listUsers = async () => (await read()).map(publicUser);
 
 const norm = (s: string) => s.trim().normalize("NFC").toLowerCase();
 
-/** 이메일 또는 사용자 이름이 같은 계정 (로그인에 씀) */
+/** 아이디 또는 사용자 이름이 같은 계정 (로그인에 씀) */
 export async function findUser(idText: string): Promise<StoredUser | null> {
   const want = norm(idText);
   if (!want) return null;
@@ -80,7 +81,7 @@ export type UserInput = { email: string; username: string; role: UserRole; passw
 export async function createUser(input: UserInput): Promise<{ ok: true; user: PublicUser } | { ok: false; error: string }> {
   const email = input.email.trim();
   const username = input.username.trim();
-  if (!email || !username) return { ok: false, error: "이메일과 사용자 이름을 적어 주세요." };
+  if (!email || !username) return { ok: false, error: "아이디와 사용자 이름을 적어 주세요." };
   if (input.password.length < 4) return { ok: false, error: "비밀번호는 4글자 이상이어야 해요." };
   for (const fixed of ["admin", "test"]) {
     if (norm(email) === fixed || norm(username) === fixed) return { ok: false, error: `${fixed} 는 ${fixed === "admin" ? "관리자" : "테스트"} 계정이 쓰는 이름이에요.` };
@@ -88,7 +89,7 @@ export async function createUser(input: UserInput): Promise<{ ok: true; user: Pu
   const list = await read();
   if (list.length >= MAX_USERS) return { ok: false, error: "만들 수 있는 계정 수를 넘었어요." };
   if (list.some((u) => norm(u.email) === norm(email) || norm(u.username) === norm(username) || norm(u.email) === norm(username) || norm(u.username) === norm(email))) {
-    return { ok: false, error: "이미 있는 이메일 또는 사용자 이름이에요." };
+    return { ok: false, error: "이미 있는 아이디 또는 사용자 이름이에요." };
   }
   const salt = randomBytes(16).toString("base64url");
   const user: StoredUser = {
@@ -126,7 +127,7 @@ export async function updateProfile(id: string, change: { username?: string; pas
   if (change.username !== undefined) {
     const username = change.username.trim().slice(0, 60);
     if (!username) return { ok: false, error: "이름을 적어 주세요." };
-    // 이름으로도 로그인하므로 고정 계정이나 다른 계정의 이름 · 이메일과 겹치면 안 됨
+    // 이름으로도 로그인하므로 고정 계정이나 다른 계정의 이름 · 아이디와 겹치면 안 됨
     if (["admin", "test"].includes(norm(username)) || list.some((o) => o.id !== id && (norm(o.username) === norm(username) || norm(o.email) === norm(username)))) {
       return { ok: false, error: "이미 쓰고 있는 이름이에요." };
     }

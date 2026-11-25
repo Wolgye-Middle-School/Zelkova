@@ -127,7 +127,7 @@ export default function ProfileMenu() {
   );
 }
 
-/** 프로필 조회: 이름 · 이메일 · 계정 종류를 보고, 이름과 비밀번호를 바꿈 */
+/** 프로필 조회: 이름 · 아이디 · 계정 종류를 보고, 이름과 비밀번호를 바꿈 */
 function ProfileDialog({ profile, onClose, onChanged }: { profile: Profile; onClose: () => void; onChanged: (p: Profile) => void }) {
   const [username, setUsername] = useState(profile.username);
   const [currentPassword, setCurrentPassword] = useState("");
