@@ -17,7 +17,7 @@ import {
   type TemplateSettings,
 } from "@/lib/timetable";
 import { DEFAULT_TEMPLATE_URL, type SlotState } from "./steps";
-import { isTestBrowser, logout } from "./auth";
+import { checkRole, isTestBrowser, logout } from "./auth";
 import { byGradeClass, DEFAULT_SUBJECTS, fetchServerRows, isBlank, loadRows, saveRows, saveServerRows, syncToTimetable, TIMETABLE_KEY, validateRows, type StudentRow } from "./students";
 import { cleanSettings, loadSettings, saveSettings, validateSettings } from "./settings";
 import UploadWizard from "./UploadWizard";
@@ -141,10 +141,11 @@ export default function TimetableApp() {
   // 지난번에 입력한 학생 목록 불러오기
   useEffect(() => {
     const saved = loadRows();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 는 브라우저에서만 읽을 수 있음
-    if (saved) setRows(saved);
+    // 등록한 학생 목록은 특수학급 교사에게만 보임 (같은 브라우저를 다른 계정이 써도 보이지 않게)
+    if (saved) void checkRole().then((role) => (role === "teacher" || isTestBrowser()) && setRows((cur) => (cur === INITIAL_ROWS ? saved : cur)));
     // 시간표 학생 목록이 따로 저장돼 있지 않으면 등록한 학생을 그대로 가져옴
     const tt = loadRows(TIMETABLE_KEY) ?? saved?.map((r) => ({ ...r, subjects: [...r.subjects] }));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 는 브라우저에서만 읽을 수 있음
     if (tt) setTtRows(tt);
     void syncFromServer();
   }, [syncFromServer]);

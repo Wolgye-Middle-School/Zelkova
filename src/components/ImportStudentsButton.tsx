@@ -2,25 +2,22 @@
 
 import { useState } from "react";
 import { DownloadIcon, Spinner } from "./icons";
-import LoginOverlay from "./LoginOverlay";
 
 /**
  * '등록된 학생 정보 불러오기' 버튼 (시간표 · 약속판 · 칭찬통장에서 함께 씀).
  * onImport 는 불러온 뒤 보여 줄 문구를 돌려주고, 로그인하지 않아 서버 학생 정보를 받지 못하면 null.
- * null 이면 로그인 창을 띄우고, 로그인하면 이어서 다시 불러옴
+ * null 이면 특수학급 교사만 불러올 수 있다고 알려 줌
  */
 export default function ImportStudentsButton({ onImport, className = "" }: { onImport: () => Promise<string | null>; className?: string }) {
   const [importing, setImporting] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [needLogin, setNeedLogin] = useState(false);
 
   const run = async () => {
     setImporting(true);
     setNote(null);
     const message = await onImport();
     setImporting(false);
-    if (message === null) setNeedLogin(true);
-    else setNote(message);
+    setNote(message ?? "학생 정보를 불러오지 못했어요. 특수학급 교사 계정만 볼 수 있어요.");
   };
 
   return (
@@ -35,19 +32,9 @@ export default function ImportStudentsButton({ onImport, className = "" }: { onI
         등록된 학생 정보 불러오기
       </button>
       {note && (
-        <span role="status" className="text-xs font-medium text-emerald-700">
+        <span role="status" className="text-xs font-medium text-slate-600">
           {note}
         </span>
-      )}
-      {needLogin && (
-        <LoginOverlay
-          exitLabel="닫기"
-          onExit={() => setNeedLogin(false)}
-          onSuccess={() => {
-            setNeedLogin(false);
-            void run();
-          }}
-        />
       )}
     </div>
   );

@@ -39,7 +39,7 @@ Special-education teachers and staff spend hours every week on paperwork that fo
 | 🏷️ **Name tags** | Designing and lining up name tags | Colour-framed cards with a character, class and name, 14 per A4 sheet |
 | 🍱 **School meal menu** | Searching the school website for this month's menu | A direct link to this month's meal notice |
 | ✍️ **Positive-writing practice** | Preparing handwriting worksheets | Grid-notebook worksheets (trace / copy / blank) at word, sentence or story level (PDF) |
-| 👥 **Student info** 🔒 | Re-entering the same student list in every tool | One shared student list that the other tools use |
+| 👥 **Student info** 🔒 | Re-entering the same student list in every tool | One shared student list that the other tools use (in 행정 업무; special-class teacher accounts only) |
 
 ### 🗂️ Admin tools (login required)
 
