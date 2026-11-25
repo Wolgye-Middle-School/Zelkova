@@ -2,7 +2,7 @@
 
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import { useEffect, useState, useSyncExternalStore, type KeyboardEvent } from "react";
-import { checkRole } from "./auth";
+import { AUTH_EVENT, checkRole } from "./auth";
 import { ArrowRightIcon, LockIcon } from "./icons";
 import LoginOverlay from "./LoginOverlay";
 import BorderBeam from "./smoothui/border-beam";
@@ -65,6 +65,13 @@ export default function Landing({ onOpen }: { onOpen: (id: ToolId) => void }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // 머리글의 프로필에서 로그인하면 카드도 바로 바꿈
+  useEffect(() => {
+    const onAuth = () => void checkRole().then(setRole);
+    window.addEventListener(AUTH_EVENT, onAuth);
+    return () => window.removeEventListener(AUTH_EVENT, onAuth);
   }, []);
 
   // 로그인하지 않았으면 잠긴 탭 대신 일반 업무를 보여 줌

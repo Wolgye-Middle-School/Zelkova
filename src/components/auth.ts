@@ -37,6 +37,10 @@ export async function checkAdmin(): Promise<boolean> {
  */
 export const isTestBrowser = () => typeof document !== "undefined" && /(?:^|;\s*)zelkova_test=1(?:;|$)/.test(document.cookie);
 
+/** 로그인 · 로그아웃 · 프로필 변경을 화면의 다른 곳(머리글의 프로필)에 알리는 이벤트 */
+export const AUTH_EVENT = "zelkova:auth";
+export const notifyAuth = () => window.dispatchEvent(new Event(AUTH_EVENT));
+
 /**
  * 로그인. 실패하면 화면에 보여 줄 문구.
  * reload: 테스트 계정으로 들어가거나 테스트 계정에서 다른 계정으로 바뀌었으면 브라우저 저장소를 바꿔야 하므로 화면을 다시 불러와야 함
@@ -47,6 +51,7 @@ export async function login(id: string, password: string): Promise<{ ok: true; r
     const res = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, password }) });
     if (res.ok) {
       const body = (await res.json().catch(() => null)) as { test?: boolean } | null;
+      notifyAuth();
       return { ok: true, reload: !!body?.test || wasTest };
     }
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -59,6 +64,7 @@ export async function login(id: string, password: string): Promise<{ ok: true; r
 export async function logout() {
   const wasTest = isTestBrowser();
   await fetch("/api/auth", { method: "DELETE" }).catch(() => {});
+  notifyAuth();
   if (wasTest) {
     // 테스트 계정에서 쓴 브라우저 저장 내용을 지우고, 진짜 저장소로 다시 불러옴
     sessionStorage.clear();

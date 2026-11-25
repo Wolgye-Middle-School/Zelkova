@@ -117,6 +117,31 @@ export async function updateUser(id: string, change: { role?: UserRole; status?:
   return publicUser(u);
 }
 
+/** 본인이 프로필에서 이름 · 비밀번호를 바꿈 (비밀번호 확인은 부르는 쪽에서) */
+export async function updateProfile(id: string, change: { username?: string; password?: string }): Promise<{ ok: true; user: PublicUser } | { ok: false; error: string }> {
+  const list = await read();
+  const i = list.findIndex((u) => u.id === id);
+  if (i < 0) return { ok: false, error: "계정을 찾을 수 없어요." };
+  const u = { ...list[i] };
+  if (change.username !== undefined) {
+    const username = change.username.trim().slice(0, 60);
+    if (!username) return { ok: false, error: "이름을 적어 주세요." };
+    // 이름으로도 로그인하므로 고정 계정이나 다른 계정의 이름 · 이메일과 겹치면 안 됨
+    if (["admin", "test"].includes(norm(username)) || list.some((o) => o.id !== id && (norm(o.username) === norm(username) || norm(o.email) === norm(username)))) {
+      return { ok: false, error: "이미 쓰고 있는 이름이에요." };
+    }
+    u.username = username;
+  }
+  if (change.password !== undefined) {
+    if (change.password.length < 4) return { ok: false, error: "새 비밀번호는 4글자 이상이어야 해요." };
+    u.salt = randomBytes(16).toString("base64url");
+    u.hash = hashPassword(change.password, u.salt);
+  }
+  list[i] = u;
+  await write(list);
+  return { ok: true, user: publicUser(u) };
+}
+
 export async function deleteUser(id: string): Promise<boolean> {
   const list = await read();
   const next = list.filter((u) => u.id !== id);

@@ -34,6 +34,7 @@ import DutyLogApp from "./DutyLogApp";
 import GuideChatApp from "./GuideChatApp";
 import IepApp from "./IepApp";
 import UsersApp from "./UsersApp";
+import ProfileMenu from "./ProfileMenu";
 
 export type StudentDoc = { key: string; student: Student; blob: Blob; fileName: string; hours: number; subjectHours: [string, number][] };
 
@@ -351,6 +352,7 @@ export default function TimetableApp() {
           <div className="flex items-center gap-2">
             <TestBadge />
             <DevContact />
+            <ProfileMenu />
           </div>
         </div>
       </header>
