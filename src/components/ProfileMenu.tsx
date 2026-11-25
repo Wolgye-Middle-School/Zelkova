@@ -206,9 +206,7 @@ function ProfileDialog({ profile, onClose, onChanged }: { profile: Profile; onCl
           </div>
         </div>
 
-        {profile.fixed ? (
-          <p className="mt-5 rounded-lg bg-slate-50 px-3 py-3 text-sm text-slate-500">이 계정은 고정된 계정이라 이름과 비밀번호를 바꿀 수 없어요.</p>
-        ) : (
+        {!profile.fixed && (
           <>
             <form onSubmit={saveName} className="mt-5 space-y-2 border-t border-slate-100 pt-5">
               <label htmlFor="profile-name" className="block text-xs font-semibold text-slate-600">
